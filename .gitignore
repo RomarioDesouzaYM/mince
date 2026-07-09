@@ -1,0 +1,19 @@
+# Python
+backend/venv/
+backend/**/__pycache__/
+backend/.env
+backend/mince.db
+backend/uvicorn_out.log
+backend/uvicorn_err.log
+*.pyc
+
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+
+# Editor/OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
