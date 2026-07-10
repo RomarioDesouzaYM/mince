@@ -63,9 +63,17 @@ def _strip_html(text: str) -> str:
 
 
 def _kategori(text: str) -> str:
+    # Known limitation: \b word-boundary matching stops a keyword from matching
+    # *inside* another word (e.g. "aparat" in "Aparatur"), but a keyword can still be
+    # a genuine standalone word inside an institution's own name (e.g. "Keamanan" in
+    # "Kementerian Koordinator Bidang Politik dan Keamanan"), producing a false
+    # positive that isn't a substring bug. An exclusion list for institutional names
+    # was considered and rejected — it risks new false negatives (e.g. suppressing
+    # real disaster articles that mention BNPB, which has "Bencana" in its own name).
+    # Inherent limit of keyword-based classification without an AI API.
     t = text.lower()
     for kategori, words in KATEGORI_KEYWORDS.items():
-        if any(w in t for w in words):
+        if any(re.search(rf"\b{re.escape(w)}\b", t) for w in words):
             return kategori
     return "Umum"
 
@@ -98,12 +106,16 @@ def ingest_news() -> int:
                 judul = _strip_html(entry.get("title") or "")
                 ringkasan = _strip_html(entry.get("summary") or "")[:300].strip()
                 blob = f"{judul} {ringkasan}"
+                kategori = _kategori(blob)
+                if kategori == "Umum":
+                    # Field-monitoring relevance only — general Papua news is noise here.
+                    continue
                 tanggal = entry.get("published") or datetime.now(timezone.utc).isoformat()
                 db.add(News(
                     tanggal=tanggal,
                     judul=judul,
                     ringkasan=ringkasan,
-                    kategori=_kategori(blob),
+                    kategori=kategori,
                     sumber=sumber,
                     url=url,
                     kabupaten_terkait=_kabupaten(blob),

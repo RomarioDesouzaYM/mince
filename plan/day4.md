@@ -39,16 +39,26 @@ hover extension shipped: hovering a distrik marker also shows current weather + 
 ## Outcome (2026-07-10)
 
 Everything shipped, including the cuttable hover extension — the day didn't run long.
-`POST /admin/ingest` confirmed against real feeds/API: 68 news rows, 13/13 weather
-snapshots (one district transiently failed on first startup ingest due to an SSL
-handshake timeout, then succeeded on manual re-trigger — a live demonstration of the
-graceful-skip path). Network-failure fallback verified separately via a monkeypatched
-throwaway script: both ingest functions log a warning per item and return 0 without
-raising, and pre-existing rows are left untouched.
+`POST /admin/ingest` confirmed against real feeds/API: 13/13 weather snapshots (one
+district transiently failed on first startup ingest due to an SSL handshake timeout,
+then succeeded on manual re-trigger — a live demonstration of the graceful-skip path).
+Network-failure fallback verified separately via a monkeypatched throwaway script: both
+ingest functions log a warning per item and return 0 without raising, and pre-existing
+rows are left untouched.
 
-One fix beyond the original scope: RSS summaries arrived with embedded `<img>` HTML
-tags from the feed markup, which would have rendered as visible garbage text. Added
-HTML stripping in `ingest_news()` and re-ingested to clean the already-stored rows.
+Two fixes beyond the original scope:
+- RSS summaries arrived with embedded `<img>` HTML tags from the feed markup, which
+  would have rendered as visible garbage text. Added HTML stripping in `ingest_news()`.
+- `ingest_news()` was storing every "Umum" article (general Papua news unrelated to
+  field operations), drifting from berita's purpose. Now skips inserting anything that
+  resolves to "Umum" — only Keamanan/Bencana/Cuaca are kept. Final ingest: 4 relevant
+  rows. Keyword matching also tightened to `\b` word-boundary regex instead of raw
+  substring (a keyword could match inside an unrelated word, e.g. "aparat" inside
+  "Aparatur"). Known remaining limitation, accepted as-is: a keyword can still be a
+  genuine standalone word inside an institution's own name (e.g. "Keamanan" inside
+  "Kementerian Koordinator Bidang Politik dan Keamanan") and false-positive — this is
+  an inherent limit of keyword-based classification without an AI API, not a fixable
+  substring bug. See the comment on `_kategori()` in `backend/app/scheduler.py`.
 
 Dashboard's weather card shows Wamena Kota specifically (the reference/capital
 district), not one card per distrik — the roadmap's mockup shows a single card.
