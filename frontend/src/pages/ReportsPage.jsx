@@ -1,25 +1,30 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { listReports } from '../api/reports'
+import { URGENCY_BADGE } from '../constants'
+import ReportFilters from '../components/ReportFilters'
 
-const URGENCY_STYLE = {
-  Rendah: 'bg-gray-100 text-gray-700',
-  Sedang: 'bg-yellow-100 text-yellow-800',
-  Tinggi: 'bg-orange-100 text-orange-800',
-  Kritis: 'bg-red-100 text-red-800',
+const emptyFilters = {
+  kabupaten: '',
+  category: '',
+  status: '',
+  urgency: '',
+  submitted_by_role: '',
 }
 
 export default function ReportsPage() {
   const [reports, setReports] = useState([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [filters, setFilters] = useState(emptyFilters)
 
   useEffect(() => {
-    listReports()
+    setLoading(true)
+    listReports(filters)
       .then(setReports)
       .catch(() => setError('Gagal memuat daftar laporan'))
       .finally(() => setLoading(false))
-  }, [])
+  }, [filters])
 
   return (
     <div>
@@ -32,6 +37,8 @@ export default function ReportsPage() {
           + Tambah Laporan
         </Link>
       </div>
+
+      <ReportFilters filters={filters} onChange={setFilters} className="mb-4" />
 
       {error && <p className="text-sm text-red-600">{error}</p>}
       {loading && <p className="text-sm text-gray-500">Memuat...</p>}
@@ -66,7 +73,7 @@ export default function ReportsPage() {
                   <td className="px-4 py-3 text-gray-900">{r.title}</td>
                   <td className="whitespace-nowrap px-4 py-3">
                     <span
-                      className={`rounded px-2 py-1 text-xs font-medium ${URGENCY_STYLE[r.urgency] ?? 'bg-gray-100 text-gray-700'}`}
+                      className={`rounded px-2 py-1 text-xs font-medium ${URGENCY_BADGE[r.urgency] ?? 'bg-gray-100 text-gray-700'}`}
                     >
                       {r.urgency}
                     </span>

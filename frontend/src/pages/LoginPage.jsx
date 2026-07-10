@@ -10,7 +10,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
 
   if (isAuthenticated()) {
-    return <Navigate to="/dashboard" replace />
+    return <Navigate to="/peta" replace />
   }
 
   async function handleSubmit(e) {
@@ -19,7 +19,7 @@ export default function LoginPage() {
     setLoading(true)
     try {
       await login(username, password)
-      navigate('/dashboard', { replace: true })
+      navigate('/peta', { replace: true })
     } catch {
       setError('Username atau password salah')
     } finally {

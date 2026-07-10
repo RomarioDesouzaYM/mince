@@ -2,6 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { logout } from '../api/auth'
 
 const links = [
+  { to: '/peta', label: 'Peta' },
   { to: '/dashboard', label: 'Dashboard' },
   { to: '/laporan', label: 'Laporan' },
 ]
