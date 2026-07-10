@@ -1,5 +1,6 @@
 from typing import Optional
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app import models, schemas
@@ -64,6 +65,43 @@ def delete_report(db: Session, report_id: int) -> bool:
     db.delete(report)
     db.commit()
     return True
+
+
+# --- Dashboard ---------------------------------------------------------------
+
+def get_dashboard_stats(db: Session) -> schemas.DashboardStats:
+    total = db.query(models.Report).count()
+    baru = db.query(models.Report).filter(models.Report.status == "Baru").count()
+    tinggi_kritis = (
+        db.query(models.Report)
+        .filter(models.Report.urgency.in_(["Tinggi", "Kritis"]))
+        .count()
+    )
+    belum_selesai = (
+        db.query(models.Report).filter(models.Report.status != "Selesai").count()
+    )
+
+    kategori_dominan = (
+        db.query(models.Report.category, func.count(models.Report.id).label("n"))
+        .group_by(models.Report.category)
+        .order_by(func.count(models.Report.id).desc())
+        .first()
+    )
+    distrik_terbanyak = (
+        db.query(models.Report.distrik, func.count(models.Report.id).label("n"))
+        .group_by(models.Report.distrik)
+        .order_by(func.count(models.Report.id).desc())
+        .first()
+    )
+
+    return schemas.DashboardStats(
+        total=total,
+        baru=baru,
+        tinggi_kritis=tinggi_kritis,
+        belum_selesai=belum_selesai,
+        kategori_dominan=kategori_dominan[0] if kategori_dominan else None,
+        distrik_terbanyak=distrik_terbanyak[0] if distrik_terbanyak else None,
+    )
 
 
 # --- Districts ---------------------------------------------------------------

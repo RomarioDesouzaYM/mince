@@ -79,3 +79,12 @@ class DistrictUpdate(BaseModel):
     estimasi_waktu_tempuh_jam: Optional[float] = None
     jenis_akses: Optional[JenisAkses] = None
     keterangan_akses: Optional[str] = None
+
+
+class DashboardStats(BaseModel):
+    total: int
+    baru: int
+    tinggi_kritis: int
+    belum_selesai: int
+    kategori_dominan: Optional[str] = None
+    distrik_terbanyak: Optional[str] = None
