@@ -49,3 +49,12 @@ or close. Touch/mobile: tap achieves the same, pinned open. Choropleth: working 
 verified polygons + attribution, OR kabupaten-level-only, OR explicitly skipped — all
 three are acceptable outcomes. Note in this file afterward which one happened and which
 boundary source was used per district.
+
+## Outcome (2026-07-10)
+
+Choropleth: **skipped entirely.** Implementation started at 13:41, already past the
+12:00 hard stop, so boundary sourcing (FAO GAUL / mapgeek.id / OSM) was never
+attempted — per this file's own rule, that time is not optional. Hover tooltips
+shipped as planned: distrik and report `CircleMarker`s on `/peta` use react-leaflet
+`<Tooltip sticky interactive>` on hover-capable devices, with a `<Popup>` (tap to
+open/close) fallback on touch devices detected via `matchMedia('(hover: none)')`.

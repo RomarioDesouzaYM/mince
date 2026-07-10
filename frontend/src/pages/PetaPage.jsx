@@ -1,9 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CircleMarker, MapContainer, Popup, TileLayer, useMap } from 'react-leaflet'
+import { CircleMarker, MapContainer, Popup, TileLayer, Tooltip, useMap } from 'react-leaflet'
 import { listDistricts, updateDistrict } from '../api/districts'
 import { listReports } from '../api/reports'
 import { URGENCY_COLOR } from '../constants'
 import ReportFilters from '../components/ReportFilters'
+import { DistrictMarkerContent, ReportMarkerContent } from '../components/MapMarkerContent'
+
+function useIsTouchDevice() {
+  const [isTouch, setIsTouch] = useState(false)
+  useEffect(() => {
+    const query = window.matchMedia('(hover: none)')
+    setIsTouch(query.matches)
+    const handler = (e) => setIsTouch(e.matches)
+    query.addEventListener('change', handler)
+    return () => query.removeEventListener('change', handler)
+  }, [])
+  return isTouch
+}
 
 const WAMENA_CENTER = [-4.0917, 138.95]
 const DISTRICT_COLOR = '#2563eb'
@@ -41,6 +54,7 @@ export default function PetaPage() {
   const [saveError, setSaveError] = useState('')
   const [saveSuccess, setSaveSuccess] = useState(false)
   const editPanelRef = useRef(null)
+  const isTouch = useIsTouchDevice()
 
   useEffect(() => {
     listDistricts()
@@ -150,31 +164,19 @@ export default function PetaPage() {
                 radius={9}
                 pathOptions={{ color: DISTRICT_COLOR, fillColor: DISTRICT_COLOR, fillOpacity: 0.8 }}
               >
-                <Popup>
-                  <div className="text-sm">
-                    <p className="font-semibold">
-                      {d.distrik}, {d.kabupaten}
-                    </p>
-                    <p>Jarak dari Wamena: {d.jarak_dari_wamena_km ?? '—'} km</p>
-                    <p>
-                      Waktu tempuh:{' '}
-                      {d.jenis_akses === 'udara'
-                        ? 'Akses udara'
-                        : d.estimasi_waktu_tempuh_jam != null
-                          ? `${d.estimasi_waktu_tempuh_jam} jam`
-                          : '—'}
-                    </p>
-                    <p>Laporan Jaringan: {counts.jaringan}</p>
-                    <p>Laporan Listrik: {counts.listrik}</p>
-                    <button
-                      type="button"
-                      onClick={() => jumpToEdit(d.id)}
-                      className="mt-2 text-blue-600 hover:underline"
-                    >
-                      Edit distrik ini
-                    </button>
-                  </div>
-                </Popup>
+                {isTouch ? (
+                  <Popup>
+                    <DistrictMarkerContent
+                      district={d}
+                      counts={counts}
+                      onEdit={() => jumpToEdit(d.id)}
+                    />
+                  </Popup>
+                ) : (
+                  <Tooltip sticky interactive>
+                    <DistrictMarkerContent district={d} counts={counts} />
+                  </Tooltip>
+                )}
               </CircleMarker>
             )
           })}
@@ -192,27 +194,15 @@ export default function PetaPage() {
                   fillOpacity: 0.9,
                 }}
               >
-                <Popup>
-                  <div className="text-sm">
-                    <p className="font-semibold">{r.title}</p>
-                    <p>
-                      {r.distrik}, {r.kabupaten}
-                    </p>
-                    <p>Kategori: {r.category}</p>
-                    <p>Urgensi: {r.urgency}</p>
-                    <p>Status: {r.status}</p>
-                    {r.bukti_dukung_url && (
-                      <a
-                        href={r.bukti_dukung_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-blue-600 hover:underline"
-                      >
-                        Lihat Bukti
-                      </a>
-                    )}
-                  </div>
-                </Popup>
+                {isTouch ? (
+                  <Popup>
+                    <ReportMarkerContent report={r} />
+                  </Popup>
+                ) : (
+                  <Tooltip sticky interactive>
+                    <ReportMarkerContent report={r} />
+                  </Tooltip>
+                )}
               </CircleMarker>
             ))}
         </MapContainer>
