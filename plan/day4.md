@@ -62,3 +62,25 @@ Two fixes beyond the original scope:
 
 Dashboard's weather card shows Wamena Kota specifically (the reference/capital
 district), not one card per distrik — the roadmap's mockup shows a single card.
+
+Three additional feeds added beyond the original 4 Antara feeds, after testing
+candidates for working RSS endpoints: `papua.tribunnews.com/rss`, `jubi.id/feed`,
+`suarapapua.com/feed` (`ceposonline.com` was tested and rejected — no working feed
+endpoint under any URL variant, every path redirects to their HTML search page).
+`ingest_news()` now fetches every feed through one consistent path — a browser-like
+User-Agent (tribunnews 403s feedparser's default UA) plus an explicit `certifi` CA
+bundle (jubi.id's TLS handshake fails against this environment's default trust store)
+— rather than giving jubi.id a special-cased fetch method. Checked
+`papua.tribunnews.com/robots.txt` before adding it to the permanent 3×/day schedule:
+`/rss` isn't disallowed (only `/api/`, `/posts/`, `/ajax/`, etc. are), though the file
+does carry a "personal/non-commercial use only" comment worth being aware of.
+
+jubi.id's `/pasifik/` section (international Pacific news — Australia, Fiji, etc.) was
+producing topically off-region false positives despite genuine keyword matches (an
+Australia-Fiji defense-pact article matched "keamanan" as a real word, just not about
+Papua) — now skipped by URL path for that source specifically. Final ingest across all
+7 feeds: 10 rows (6 Keamanan, 2 Bencana, 2 Cuaca), spanning all 6 sources. Two rows
+carry the same already-documented institutional-name limitation from `_kategori()`
+(keyword is a real standalone word inside an institution's own name/acronym, e.g.
+"Keamanan" inside a ministry's formal name or an app's expanded acronym) — accepted as
+the same known limitation, not a new problem.

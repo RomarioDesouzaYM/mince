@@ -9,7 +9,10 @@ bodies).
 from datetime import datetime, timezone
 import logging
 import re
+import ssl
+import urllib.request
 
+import certifi
 import feedparser
 import httpx
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -25,7 +28,32 @@ RSS_FEEDS = [
     "https://papua.antaranews.com/rss/top-news.xml",
     "https://papua.antaranews.com/rss/daerah.xml",
     "https://papuatengah.antaranews.com/rss/terkini.xml",
+    "https://papua.tribunnews.com/rss",
+    "https://jubi.id/feed",
+    "https://suarapapua.com/feed",
 ]
+
+# Some feeds (e.g. papua.tribunnews.com) block feedparser's default User-Agent with a
+# 403. A browser-like UA is required for those to actually work in production, not
+# just when eyeballed once. Applied to every feed for one consistent fetch path.
+_FEED_USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+)
+
+# jubi.id needs an explicit certifi CA bundle to complete its TLS handshake — this
+# environment's default SSL context is missing an intermediate CA. Using the same
+# context for every feed keeps the fetch path identical across sources.
+_SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
+
+
+def _fetch_feed(url: str):
+    """Fetch a feed URL with a browser UA + explicit CA bundle, then hand the raw
+    bytes to feedparser. Same code path for every source (see comments above)."""
+    request = urllib.request.Request(url, headers={"User-Agent": _FEED_USER_AGENT})
+    raw = urllib.request.urlopen(request, timeout=15, context=_SSL_CONTEXT).read()
+    return feedparser.parse(raw)
+
 
 # keyword -> kategori (checked in this order; first hit wins, else "Umum")
 KATEGORI_KEYWORDS = {
@@ -94,7 +122,7 @@ def ingest_news() -> int:
         existing_urls = {u for (u,) in db.query(News.url).all()}
         for feed_url in RSS_FEEDS:
             try:
-                parsed = feedparser.parse(feed_url)
+                parsed = _fetch_feed(feed_url)
             except Exception as e:  # noqa: BLE001
                 log.warning("feed failed %s: %s", feed_url, e)
                 continue
@@ -102,6 +130,11 @@ def ingest_news() -> int:
             for entry in parsed.entries:
                 url = entry.get("link")
                 if not url or url in existing_urls:
+                    continue
+                if "jubi.id" in feed_url and "/pasifik/" in url:
+                    # jubi.id's /pasifik/ section covers international Pacific news
+                    # (Australia, Fiji, etc.), not Papua-regional content — keyword
+                    # matches there are topically off-region, not field-monitoring news.
                     continue
                 judul = _strip_html(entry.get("title") or "")
                 ringkasan = _strip_html(entry.get("summary") or "")[:300].strip()
