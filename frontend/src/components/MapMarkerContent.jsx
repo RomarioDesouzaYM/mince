@@ -46,7 +46,7 @@ export function ReportMarkerContent({ report }) {
           rel="noreferrer"
           className="text-blue-600 hover:underline"
         >
-          Lihat Bukti: {report.title}
+          Lihat Bukti
         </a>
       )}
     </div>
