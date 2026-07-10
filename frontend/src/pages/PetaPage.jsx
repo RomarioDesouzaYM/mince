@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { CircleMarker, MapContainer, Popup, TileLayer, useMap } from 'react-leaflet'
 import { listDistricts, updateDistrict } from '../api/districts'
 import { listReports } from '../api/reports'
@@ -40,6 +40,7 @@ export default function PetaPage() {
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const editPanelRef = useRef(null)
 
   useEffect(() => {
     listDistricts()
@@ -90,6 +91,11 @@ export default function PetaPage() {
 
   function updateEditField(field, value) {
     setEditForm((prev) => ({ ...prev, [field]: value }))
+  }
+
+  function jumpToEdit(districtId) {
+    setEditingId(String(districtId))
+    editPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
   async function handleSaveDistrict(e) {
@@ -162,10 +168,10 @@ export default function PetaPage() {
                     <p>Laporan Listrik: {counts.listrik}</p>
                     <button
                       type="button"
-                      onClick={() => setEditingId(String(d.id))}
+                      onClick={() => jumpToEdit(d.id)}
                       className="mt-2 text-blue-600 hover:underline"
                     >
-                      Edit data distrik
+                      Edit distrik ini
                     </button>
                   </div>
                 </Popup>
@@ -212,7 +218,7 @@ export default function PetaPage() {
         </MapContainer>
       </div>
 
-      <div className="max-w-md rounded-lg border border-gray-200 bg-white p-4">
+      <div ref={editPanelRef} className="max-w-md rounded-lg border border-gray-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-gray-900">Edit Data Distrik</h2>
 
         <label className="mb-3 block">
