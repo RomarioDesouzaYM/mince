@@ -1,32 +1,51 @@
-# Day 3 — The Scheduler: Auto News + Auto Weather
+# Day 3 — Choropleth Boundaries + Hover Tooltips
 
-Goal: berita and cuaca update themselves 3×/day with no human input. This is the point
-of v4 — do not cut it.
+Goal: distrik/report popups become hover tooltips (not click), and an optional
+choropleth polygon layer ships on `/peta`, shaded by report count.
+
+**Hard stop: if usable distrik-level boundaries for Jayawijaya, Yalimo, and Mamberamo
+Tengah aren't confirmed by 12:00, STOP sourcing.** Ship kabupaten-level-only polygons,
+or skip choropleth entirely and move to Day 4. This is not optional — do not let
+boundary sourcing run past noon.
 
 ## Tasks (in order)
 
-1. Install `apscheduler`, `feedparser`, `httpx`. Create `backend/app/scheduler.py`
-   (reference: draft/scheduler.py).
-2. `ingest_news()`: parse the 4 Papua Antara RSS feeds. Per entry keep judul, ringkasan
-   (feed's own summary, trimmed ~300 chars), url, tanggal, sumber. Keyword-tag `kategori`
-   (Keamanan / Bencana / Cuaca / Umum). Flag `kabupaten_terkait` on name match. Dedupe on
-   `url` (unique). Insert new rows only. Never store full article bodies.
-3. `ingest_weather()`: loop over districts → call Open-Meteo (no key) → map `weather_code`
-   to an Indonesian label → upsert a `WeatherSnapshot` per distrik. On API error, keep the
-   last snapshot (graceful skip).
-4. `start_scheduler()`: `BackgroundScheduler(timezone="Asia/Jayapura")`, CronTrigger
-   `hour="6,14,22", minute=0`, both jobs. Run both once at startup. Wire into the FastAPI
-   lifespan.
-5. `POST /admin/ingest` (auth-guarded): triggers both jobs on demand for demo/debug.
-6. `/berita` page: kategori filter, judul + ringkasan + "Baca Sumber" link, and a
-   "Terakhir diperbarui: … WIT" stamp. Top-3 "Berita Terkini" panel on the Dashboard.
-7. Weather column in `/risiko` + weather card on Dashboard, both reading the stored
-   snapshot (not fetching live on each load).
+1. Download FAO GAUL 2024 level 2 SHP from data.apps.fao.org (CC-BY-4.0, no
+   registration). Filter to Indonesia → Papua. Convert to GeoJSON via mapshaper.org.
+   Eyeball Jayawijaya/Yalimo/Mamberamo Tengah against a real map — distinct, correctly
+   shaped, correctly located?
+2. For anything missing/wrong: try mapgeek.id SHP as a second opinion (compare against
+   GAUL where both exist — agreement is a trust signal). Still gaps → OSM/Overpass
+   (`admin_level=6/7/8`) as last resort. Simplify large files via mapshaper.
+3. Build `frontend/src/data/districtBoundaryMap.js` BY HAND, one verified pairing at a
+   time, noting which source each polygon came from. **Never match by string equality
+   alone** — double-check every "Mamberamo Tengah" against its actual kabupaten (it's
+   also an unrelated distrik name elsewhere in Papua).
+4. **12:00 DECISION POINT:** continue / kabupaten-level-only / skip entirely.
+5. Convert existing marker popups (both distrik and report, from Day 2) to hover
+   tooltips: `bindTooltip({sticky: true, interactive: true})`. Distrik tooltip: jarak,
+   estimasi waktu tempuh (or "Akses udara"), jenis akses, laporan jaringan/listrik
+   counts. Report tooltip: judul, kategori, urgensi, status, and "Lihat Bukti: {title}"
+   link when `bukti_dukung_url` is present. Touch/mobile: tap opens the same content
+   pinned open (fallback, since hover doesn't exist on touch).
+6. *(If continuing choropleth)* Add a `<GeoJSON>` layer to `PetaPage.jsx`, shaded by
+   `jumlah_laporan`, same hover-tooltip pattern for polygons. Marker/Choropleth toggle
+   above the map. Add a small attribution note near the map ("Batas wilayah: FAO GAUL
+   2024") — required by CC-BY-4.0.
+7. Visual QA in browser: hover on both marker types (and polygons if built); touch
+   emulation confirms tap-to-pin; bukti dukung link visible + clickable without the
+   tooltip vanishing first; Mamberamo Tengah check if choropleth shipped.
 
-## Deploy-shape note
-The in-process scheduler assumes ONE always-on backend instance. If you later scale out,
-switch to a system cron / DigitalOcean scheduled job hitting `POST /admin/ingest`.
+## Stop-and-ask
+
+None expected today — no new accounts, no deploy, no secrets. This is all frontend +
+static asset work.
 
 ## Done-condition
-Trigger `POST /admin/ingest` → `/berita` fills with real feed items. Weather shows on
-`/risiko` and Dashboard. Block the network and confirm pages still render last-known data.
+
+Hovering any distrik or report marker on desktop instantly shows correct data,
+including a clickable bukti dukung link with a visible title — no click needed to open
+or close. Touch/mobile: tap achieves the same, pinned open. Choropleth: working with
+verified polygons + attribution, OR kabupaten-level-only, OR explicitly skipped — all
+three are acceptable outcomes. Note in this file afterward which one happened and which
+boundary source was used per district.

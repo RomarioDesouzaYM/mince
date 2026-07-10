@@ -1,31 +1,37 @@
-# Day 4 — Risk Page + Summary + Deploy
+# Day 4 — The Scheduler: Auto News + Auto Weather + Hover Extension
 
-Goal: the indicator page and the generated briefing work, and the app is live on the real
-domain.
+Goal: berita and cuaca update themselves 3x/day with no human input, and the Day 3
+hover tooltip gets extended with real weather/news once this data exists.
 
 ## Tasks (in order)
 
-1. `GET /risk/districts`: per-distrik indicators (jumlah_laporan, urgensi_rata_rata,
-   belum_selesai, manual jarak + waktu tempuh, laporan_jaringan, laporan_listrik,
-   cuaca_saat_ini from the snapshot) + rule-based `status_perhatian`. No composite score.
-2. `/risiko` page: indicator table, status badges, and the UI explanation text from the
-   roadmap. Weather + travel time are context columns, not inputs to the status rule.
-3. `GET /summary/daily` + `/ringkasan` page: Generate, Copy, Print (browser print is fine).
-   Template references jarak, waktu tempuh, jaringan, listrik, cuaca, and top news — no score.
-4. Seed ~10 curated news rows as an OFFLINE fallback only (so `/berita` is never empty at a
-   venue without internet). This does not replace the scheduler.
-5. **Deploy** — prepare everything, then hand the human the login/click steps:
-   - Backend → DigitalOcean (App Platform, or Droplet + uvicorn + systemd). Confirm the
-     in-process scheduler runs on the host; if not, set up a DO scheduled job hitting
-     `/admin/ingest`.
-   - Frontend → Vercel. Domain + SSL → Namecheap DNS.
-   - Set `.env` on the server (human enters real values).
+1. Install `apscheduler`, `feedparser`, `httpx`. Create `backend/app/scheduler.py`
+   (reference: `draft/scheduler.py`).
+2. `ingest_news()`: parse the 4 Papua Antara RSS feeds, keep judul/ringkasan/url/
+   tanggal/sumber, keyword-tag kategori, flag `kabupaten_terkait`, dedupe on `url`,
+   insert new rows only. Never store full article bodies.
+3. `ingest_weather()`: loop districts, call Open-Meteo (no key), map `weather_code` to
+   Indonesian label, upsert `WeatherSnapshot` per distrik. Graceful skip + keep last
+   snapshot on API error.
+4. `start_scheduler()`: `BackgroundScheduler`, `CronTrigger hour="6,14,22"`, both jobs,
+   run once at startup. Wire into FastAPI lifespan.
+5. `POST /admin/ingest` (auth-guarded): triggers both jobs on demand.
+6. `/berita` page: kategori filter, judul + ringkasan + "Baca Sumber" link, "Terakhir
+   diperbarui: ... WIT" stamp. Top-3 "Berita Terkini" panel on Dashboard.
+7. Weather card on Dashboard, reading the stored snapshot (not live-fetching).
+8. **Extend the Day 3 distrik hover tooltip:** add cuaca saat ini (suhu + kondisi from
+   `weather_snapshot`) and up to 2 relevant berita headlines (filtered by
+   `kabupaten_terkait`, with links). Reuse already-fetched data — no duplicate
+   fetching logic. **CUTTABLE if behind schedule** — weather/news still visible on
+   Dashboard/berita regardless.
 
-## Stop-and-ask (human-only)
-DigitalOcean/Vercel/Namecheap logins + OAuth, entering `.env` secrets on the server,
-adding DNS records, and clicking the final Deploy/Confirm. The agent prepares config,
-Dockerfile/systemd unit, and build commands, then stops for me.
+## Stop-and-ask
+
+None expected — Open-Meteo and RSS feeds need no API keys.
 
 ## Done-condition
-Login on the real domain → map → laporan → risiko → berita (auto) → ringkasan, end to end.
-Scheduled ingest confirmed working on the server.
+
+Trigger `POST /admin/ingest` → `/berita` fills with real feed items. Weather shows on
+Dashboard. Block the network → pages still render last-known data gracefully. If the
+hover extension shipped: hovering a distrik marker also shows current weather + up to
+2 relevant news headlines.
