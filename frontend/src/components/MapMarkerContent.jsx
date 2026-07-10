@@ -1,4 +1,4 @@
-export function DistrictMarkerContent({ district, counts, onEdit }) {
+export function DistrictMarkerContent({ district, counts, news = [], onEdit }) {
   return (
     <div className="text-sm">
       <p className="font-semibold">
@@ -16,6 +16,31 @@ export function DistrictMarkerContent({ district, counts, onEdit }) {
       <p>Jenis Akses: {district.jenis_akses}</p>
       <p>Laporan Jaringan: {counts.jaringan}</p>
       <p>Laporan Listrik: {counts.listrik}</p>
+      {district.weather && (
+        <p>
+          Cuaca: {district.weather.suhu != null ? `${Math.round(district.weather.suhu)}°C` : '—'}
+          {district.weather.kondisi ? `, ${district.weather.kondisi}` : ''}
+        </p>
+      )}
+      {news.length > 0 && (
+        <div className="mt-2">
+          <p className="font-medium">Berita Terkait:</p>
+          <ul className="ml-3 list-disc">
+            {news.map((n) => (
+              <li key={n.id}>
+                <a
+                  href={n.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-blue-600 hover:underline"
+                >
+                  {n.judul}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {onEdit && (
         <button
           type="button"

@@ -125,3 +125,18 @@ def update_district(
     db.commit()
     db.refresh(district)
     return district
+
+
+# --- News (AUTO — scheduler-populated only) -----------------------------------
+
+def list_news(
+    db: Session,
+    kategori: Optional[str] = None,
+    kabupaten: Optional[str] = None,
+) -> list[models.News]:
+    query = db.query(models.News)
+    if kategori:
+        query = query.filter(models.News.kategori == kategori)
+    if kabupaten:
+        query = query.filter(models.News.kabupaten_terkait == kabupaten)
+    return query.order_by(models.News.created_at.desc()).all()

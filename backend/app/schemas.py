@@ -60,6 +60,18 @@ class ReportOut(ReportBase):
     updated_at: datetime
 
 
+class WeatherSnapshotOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    suhu: Optional[float] = None
+    kondisi: Optional[str] = None
+    besok_min: Optional[float] = None
+    besok_max: Optional[float] = None
+    besok_kondisi: Optional[str] = None
+    peluang_hujan: Optional[int] = None
+    updated_at: datetime
+
+
 class DistrictOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -72,6 +84,21 @@ class DistrictOut(BaseModel):
     estimasi_waktu_tempuh_jam: Optional[float] = None
     jenis_akses: JenisAkses = "darat_baik"
     keterangan_akses: str = ""
+    weather: Optional[WeatherSnapshotOut] = None
+
+
+class NewsOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    tanggal: Optional[str] = None
+    judul: str
+    ringkasan: str = ""
+    kategori: str = "Umum"
+    sumber: str = ""
+    url: str
+    kabupaten_terkait: Optional[str] = None
+    created_at: datetime
 
 
 class DistrictUpdate(BaseModel):

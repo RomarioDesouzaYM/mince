@@ -6,6 +6,7 @@ import PetaPage from './pages/PetaPage'
 import DashboardPage from './pages/DashboardPage'
 import ReportsPage from './pages/ReportsPage'
 import AddReportPage from './pages/AddReportPage'
+import BeritaPage from './pages/BeritaPage'
 
 export default function App() {
   return (
@@ -19,6 +20,7 @@ export default function App() {
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/laporan" element={<ReportsPage />} />
             <Route path="/laporan/tambah" element={<AddReportPage />} />
+            <Route path="/berita" element={<BeritaPage />} />
           </Route>
         </Route>
 

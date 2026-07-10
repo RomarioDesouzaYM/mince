@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { CircleMarker, MapContainer, Popup, TileLayer, Tooltip, useMap } from 'react-leaflet'
 import { listDistricts, updateDistrict } from '../api/districts'
 import { listReports } from '../api/reports'
+import { listNews } from '../api/news'
 import { URGENCY_COLOR } from '../constants'
 import ReportFilters from '../components/ReportFilters'
 import { DistrictMarkerContent, ReportMarkerContent } from '../components/MapMarkerContent'
@@ -46,6 +47,7 @@ function FitBounds({ districts }) {
 export default function PetaPage() {
   const [districts, setDistricts] = useState([])
   const [reports, setReports] = useState([])
+  const [news, setNews] = useState([])
   const [error, setError] = useState('')
   const [filters, setFilters] = useState(emptyFilters)
   const [editingId, setEditingId] = useState('')
@@ -67,6 +69,12 @@ export default function PetaPage() {
       .then(setReports)
       .catch(() => setError('Gagal memuat daftar laporan'))
   }, [filters])
+
+  useEffect(() => {
+    listNews()
+      .then(setNews)
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     setSaveError('')
@@ -101,6 +109,10 @@ export default function PetaPage() {
       jaringan: distrikReports.filter((r) => r.category === JARINGAN_CATEGORY).length,
       listrik: distrikReports.filter((r) => r.category === LISTRIK_CATEGORY).length,
     }
+  }
+
+  function newsFor(district) {
+    return news.filter((n) => n.kabupaten_terkait === district.kabupaten).slice(0, 2)
   }
 
   function updateEditField(field, value) {
@@ -157,6 +169,7 @@ export default function PetaPage() {
 
           {filteredDistricts.map((d) => {
             const counts = countsFor(d)
+            const relevantNews = newsFor(d)
             return (
               <CircleMarker
                 key={`district-${d.id}`}
@@ -169,12 +182,13 @@ export default function PetaPage() {
                     <DistrictMarkerContent
                       district={d}
                       counts={counts}
+                      news={relevantNews}
                       onEdit={() => jumpToEdit(d.id)}
                     />
                   </Popup>
                 ) : (
                   <Tooltip sticky interactive>
-                    <DistrictMarkerContent district={d} counts={counts} />
+                    <DistrictMarkerContent district={d} counts={counts} news={relevantNews} />
                   </Tooltip>
                 )}
               </CircleMarker>

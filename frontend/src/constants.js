@@ -15,6 +15,8 @@ export const STATUS = ['Baru', 'Dipantau', 'Ditindaklanjuti', 'Selesai']
 
 export const ROLES = ['Pegawai Organik', 'Mitra', 'Admin']
 
+export const NEWS_CATEGORIES = ['Keamanan', 'Bencana', 'Cuaca', 'Umum']
+
 export const URGENCY_BADGE = {
   Rendah: 'bg-green-100 text-green-800',
   Sedang: 'bg-yellow-100 text-yellow-800',

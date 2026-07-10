@@ -5,6 +5,7 @@ const links = [
   { to: '/peta', label: 'Peta' },
   { to: '/dashboard', label: 'Dashboard' },
   { to: '/laporan', label: 'Laporan' },
+  { to: '/berita', label: 'Berita' },
 ]
 
 export default function Sidebar() {
