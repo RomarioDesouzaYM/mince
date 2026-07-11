@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy import func
@@ -114,17 +115,52 @@ def get_district(db: Session, district_id: int) -> Optional[models.District]:
     return db.get(models.District, district_id)
 
 
-def update_district(
-    db: Session, district_id: int, district_in: schemas.DistrictUpdate
-) -> Optional[models.District]:
-    district = db.get(models.District, district_id)
-    if district is None:
+# --- District edit proposals (MANUAL, approval-gated) -------------------------
+
+def create_district_proposal(
+    db: Session, district_id: int, proposal_in: schemas.DistrictEditProposalCreate,
+    proposed_by: str,
+) -> Optional[models.DistrictEditProposal]:
+    if db.get(models.District, district_id) is None:
         return None
-    for field, value in district_in.model_dump(exclude_unset=True).items():
-        setattr(district, field, value)
+    proposal = models.DistrictEditProposal(
+        district_id=district_id, proposed_by=proposed_by,
+        **proposal_in.model_dump(),
+    )
+    db.add(proposal)
     db.commit()
-    db.refresh(district)
-    return district
+    db.refresh(proposal)
+    return proposal
+
+
+def list_district_proposals(
+    db: Session, status: Optional[str] = None,
+) -> list[models.DistrictEditProposal]:
+    query = db.query(models.DistrictEditProposal)
+    if status:
+        query = query.filter(models.DistrictEditProposal.status == status)
+    return query.order_by(models.DistrictEditProposal.created_at.desc()).all()
+
+
+def get_district_proposal(db: Session, proposal_id: int) -> Optional[models.DistrictEditProposal]:
+    return db.get(models.DistrictEditProposal, proposal_id)
+
+
+def decide_district_proposal(
+    db: Session, proposal: models.DistrictEditProposal, approve: bool, decided_by: str,
+) -> models.DistrictEditProposal:
+    proposal.status = "Disetujui" if approve else "Ditolak"
+    proposal.approved_by = decided_by
+    proposal.decided_at = datetime.now(timezone.utc)
+    if approve:
+        district = db.get(models.District, proposal.district_id)
+        district.jarak_dari_wamena_km = proposal.jarak_dari_wamena_km
+        district.estimasi_waktu_tempuh_jam = proposal.estimasi_waktu_tempuh_jam
+        district.jenis_akses = proposal.jenis_akses
+        district.keterangan_akses = proposal.keterangan_akses
+    db.commit()
+    db.refresh(proposal)
+    return proposal
 
 
 # --- News (AUTO — scheduler-populated only) -----------------------------------

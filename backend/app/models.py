@@ -93,6 +93,39 @@ class News(Base):
     created_at = Column(DateTime, default=_utcnow)
 
 
+DISTRICT_EDIT_PROPOSAL_STATUS = ["Menunggu", "Disetujui", "Ditolak"]
+
+
+class DistrictEditProposal(Base):
+    """Proposed change to a District's manual fields — MANUAL, gated by approval.
+
+    Carries full new values for all 4 editable fields (not a sparse diff): simpler
+    to display, apply, and reason about than optional per-field patching. Applying
+    (on approve) copies these onto the real District row; rejecting just marks the
+    proposal decided and leaves District untouched.
+    """
+    __tablename__ = "district_edit_proposals"
+
+    id = Column(Integer, primary_key=True, index=True)
+    district_id = Column(Integer, ForeignKey("districts.id"), nullable=False, index=True)
+
+    jarak_dari_wamena_km = Column(Float, nullable=True)
+    estimasi_waktu_tempuh_jam = Column(Float, nullable=True)
+    jenis_akses = Column(String, nullable=False)
+    keterangan_akses = Column(String, default="")
+
+    alasan = Column(Text, nullable=False)
+    bukti_dukung_url = Column(String, default="")
+
+    status = Column(String, default="Menunggu", index=True)  # see DISTRICT_EDIT_PROPOSAL_STATUS
+    proposed_by = Column(String, nullable=False)
+    approved_by = Column(String, nullable=True)
+    created_at = Column(DateTime, default=_utcnow)
+    decided_at = Column(DateTime, nullable=True)
+
+    district = relationship("District")
+
+
 class WeatherSnapshot(Base):
     """Cuaca — AUTO. One current snapshot per distrik, upserted by scheduler.ingest_weather()."""
     __tablename__ = "weather_snapshots"

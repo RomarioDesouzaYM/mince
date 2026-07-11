@@ -9,6 +9,16 @@ IMPORTANT: coordinates and jarak/waktu values below are APPROXIMATE seed
 placeholders. Because jarak & waktu tempuh are manual by design, replace them
 with real field values before the demo. They are marked "verify".
 
+The full 50-distrik roster (Day 5, Part B) was reconciled against BIG's official
+kecamatan boundary layer: 40 in Jayawijaya, 5 in Yalimo, 5 in Mamberamo Tengah,
+matching verified government/Wikipedia counts exactly. The original 13 rows keep
+their Day 1 hand-set values. The ~37 rows added since then use each distrik
+polygon's centroid for lat/lng, a Haversine estimate from Wamena Kota for
+jarak_dari_wamena_km, and a simple distance-bucket guess for jenis_akses/waktu
+(<15km darat_baik, 15-90km darat_sulit, >90km udara) — never ground-truthed,
+which is why `keterangan_akses` spells that out explicitly instead of a normal
+note. Replace with real field values before the demo, same as the original 13.
+
 Run: python -m app.seed
 """
 
@@ -30,17 +40,56 @@ DISTRICTS = [
     ("Jayawijaya", "Bolakme",      -3.9800, 138.8300,  40.0, 2.0, "darat_sulit", "Sebagian rusak saat hujan"),
     ("Jayawijaya", "Musatfak",     -4.1500, 139.0500,  28.0, 1.5, "darat_sulit", "verify"),
 
+    # Jayawijaya (new, unverified placeholders — see module docstring)
+    ("Jayawijaya", "Napua", -4.1208, 138.8894, 7.5, 0.4, "darat_baik", "Estimasi awal, belum diverifikasi"),
+    ("Jayawijaya", "Walaik", -4.1667, 138.7933, 19.3, 1.0, "darat_sulit", "Estimasi awal, belum diverifikasi"),
+    ("Jayawijaya", "Wouma", -4.1141, 138.9488, 2.5, 0.1, "darat_baik", "Estimasi awal, belum diverifikasi"),
+    ("Jayawijaya", "Hubikiak", -4.0632, 138.9151, 5.0, 0.3, "darat_baik", "Estimasi awal, belum diverifikasi"),
+    ("Jayawijaya", "Ibele", -4.0552, 138.7342, 24.3, 1.2, "darat_sulit", "Estimasi awal, belum diverifikasi"),
+    ("Jayawijaya", "Taelarek", -4.1051, 138.7542, 21.8, 1.1, "darat_sulit", "Estimasi awal, belum diverifikasi"),
+    ("Jayawijaya", "Itlay Hisage", -4.0436, 139.1417, 21.9, 1.1, "darat_sulit", "Estimasi awal, belum diverifikasi"),
+    ("Jayawijaya", "Siepkosi", -4.0052, 139.0595, 15.5, 0.8, "darat_sulit", "Estimasi awal, belum diverifikasi"),
+    ("Jayawijaya", "Usilimo", -3.9134, 138.8832, 21.2, 1.1, "darat_sulit", "Estimasi awal, belum diverifikasi"),
+    ("Jayawijaya", "Wita Waya", -4.0189, 138.9190, 8.8, 0.4, "darat_baik", "Estimasi awal, belum diverifikasi"),
+    ("Jayawijaya", "Libarek", -3.9917, 138.9753, 11.5, 0.6, "darat_baik", "Estimasi awal, belum diverifikasi"),
+    ("Jayawijaya", "Wadangku", -3.9365, 138.9796, 17.6, 0.9, "darat_sulit", "Estimasi awal, belum diverifikasi"),
+    ("Jayawijaya", "Pisugi", -4.0437, 138.9544, 5.4, 0.3, "darat_baik", "Estimasi awal, belum diverifikasi"),
+    ("Jayawijaya", "Koragi", -3.8659, 138.8027, 30.0, 1.5, "darat_sulit", "Estimasi awal, belum diverifikasi"),
+    ("Jayawijaya", "Tagime", -3.8025, 138.7264, 40.6, 2.0, "darat_sulit", "Estimasi awal, belum diverifikasi"),
+    ("Jayawijaya", "Molagalome", -3.8499, 138.6934, 39.2, 2.0, "darat_sulit", "Estimasi awal, belum diverifikasi"),
+    ("Jayawijaya", "Tagineri", -3.7896, 138.6590, 46.6, 2.3, "darat_sulit", "Estimasi awal, belum diverifikasi"),
+    ("Jayawijaya", "Silo Karno Doga", -3.9325, 138.8251, 22.5, 1.1, "darat_sulit", "Estimasi awal, belum diverifikasi"),
+    ("Jayawijaya", "Piramid", -3.8893, 138.7488, 31.7, 1.6, "darat_sulit", "Estimasi awal, belum diverifikasi"),
+    ("Jayawijaya", "Muliama", -4.0051, 138.7971, 19.5, 1.0, "darat_sulit", "Estimasi awal, belum diverifikasi"),
+    ("Jayawijaya", "Bugi", -3.8737, 138.8245, 28.0, 1.4, "darat_sulit", "Estimasi awal, belum diverifikasi"),
+    ("Jayawijaya", "Bpiri", -3.8237, 138.8537, 31.7, 1.6, "darat_sulit", "Estimasi awal, belum diverifikasi"),
+    ("Jayawijaya", "Welesi", -4.2022, 138.8893, 14.0, 0.7, "darat_baik", "Estimasi awal, belum diverifikasi"),
+    ("Jayawijaya", "Asotipo", -4.1979, 138.9677, 12.0, 0.6, "darat_baik", "Estimasi awal, belum diverifikasi"),
+    ("Jayawijaya", "Maima", -4.1455, 139.0727, 14.9, 0.7, "darat_baik", "Estimasi awal, belum diverifikasi"),
+    ("Jayawijaya", "Popugoba", -4.1095, 139.1530, 22.6, 1.1, "darat_sulit", "Estimasi awal, belum diverifikasi"),
+    ("Jayawijaya", "Wame", -3.9248, 138.7469, 29.2, 1.5, "darat_sulit", "Estimasi awal, belum diverifikasi"),
+    ("Jayawijaya", "Wesaput", -4.0905, 138.9657, 1.7, 0.1, "darat_baik", "Estimasi awal, belum diverifikasi"),
+    ("Jayawijaya", "Hubikosi", -4.0489, 138.8745, 9.6, 0.5, "darat_baik", "Estimasi awal, belum diverifikasi"),
+    ("Jayawijaya", "Walelagama", -4.0921, 139.0131, 7.0, 0.4, "darat_baik", "Estimasi awal, belum diverifikasi"),
+    ("Jayawijaya", "Wolo", -3.8696, 138.8838, 25.8, 1.3, "darat_sulit", "Estimasi awal, belum diverifikasi"),
+    ("Jayawijaya", "Asolokobal", -4.1576, 138.9442, 7.4, 0.4, "darat_baik", "Estimasi awal, belum diverifikasi"),
+    ("Jayawijaya", "Pelebaga", -4.0845, 138.8447, 11.7, 0.6, "darat_baik", "Estimasi awal, belum diverifikasi"),
+    ("Jayawijaya", "Yalengga", -3.8824, 138.7921, 29.1, 1.5, "darat_sulit", "Estimasi awal, belum diverifikasi"),
+    ("Jayawijaya", "Trikora", -4.3319, 138.6910, 39.2, 2.0, "darat_sulit", "Estimasi awal, belum diverifikasi"),
+
     # Yalimo (capital Elelim)
     ("Yalimo", "Elelim",           -3.9600, 139.4300,  70.0, 3.0, "darat_sulit", "Ibukota kabupaten"),
     ("Yalimo", "Abenaho",          -3.9200, 139.3800,  85.0, 4.0, "darat_sulit", "verify"),
     ("Yalimo", "Apalapsili",       -4.0100, 139.5200,  95.0, None, "udara",      "Sebagian akses udara"),
     ("Yalimo", "Welarek",          -4.0500, 139.5800, 110.0, None, "udara",      "Akses udara"),
+    ("Yalimo", "Benawa", -3.6824, 139.8077, 105.5, None, "udara", "Estimasi awal, belum diverifikasi"),
 
     # Mamberamo Tengah (capital Kobakma)
     ("Mamberamo Tengah", "Kobakma", -3.6800, 138.7000, 130.0, None, "udara",     "Ibukota, akses udara"),
     ("Mamberamo Tengah", "Kelila",  -3.7300, 138.7500, 120.0, None, "udara",     "Akses udara"),
     ("Mamberamo Tengah", "Eragayam",-3.7800, 138.6500, 140.0, None, "udara",     "verify"),
     ("Mamberamo Tengah", "Ilugwa",  -3.7000, 138.8000, 125.0, None, "udara",     "verify"),
+    ("Mamberamo Tengah", "Megambilis", -3.4750, 139.0971, 70.5, 3.5, "darat_sulit", "Estimasi awal, belum diverifikasi"),
 ]
 
 CATEGORIES = [
@@ -85,11 +134,13 @@ def seed():
         db.commit()
 
         now = datetime.now(timezone.utc)
-        # ensure coverage of jaringan + listrik, then fill to ~25
+        # ensure coverage of jaringan + listrik, then fill enough reports to give the
+        # full 50-distrik roster meaningful choropleth spread (same ~2 reports/distrik
+        # density as the original 13-distrik seed, scaled up: 26/13 -> 100/50).
         forced = ["Jaringan Komunikasi", "Jaringan Komunikasi",
                   "Listrik & Penerangan", "Listrik & Penerangan",
                   "Listrik & Penerangan"]
-        total = 26
+        total = 100
         for i in range(total):
             d = random.choice(district_rows)
             cat = forced[i] if i < len(forced) else random.choice(CATEGORIES)

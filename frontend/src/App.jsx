@@ -7,6 +7,8 @@ import DashboardPage from './pages/DashboardPage'
 import ReportsPage from './pages/ReportsPage'
 import AddReportPage from './pages/AddReportPage'
 import BeritaPage from './pages/BeritaPage'
+import ProposeDistrictEditPage from './pages/ProposeDistrictEditPage'
+import ApprovalQueuePage from './pages/ApprovalQueuePage'
 
 export default function App() {
   return (
@@ -21,6 +23,13 @@ export default function App() {
             <Route path="/laporan" element={<ReportsPage />} />
             <Route path="/laporan/tambah" element={<AddReportPage />} />
             <Route path="/berita" element={<BeritaPage />} />
+            <Route path="/distrik/:id/ajukan" element={<ProposeDistrictEditPage />} />
+          </Route>
+        </Route>
+
+        <Route element={<ProtectedRoute roles={['ketua_tim', 'kepala_bps']} />}>
+          <Route element={<Layout />}>
+            <Route path="/persetujuan" element={<ApprovalQueuePage />} />
           </Route>
         </Route>
 

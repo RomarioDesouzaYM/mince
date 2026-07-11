@@ -101,11 +101,34 @@ class NewsOut(BaseModel):
     created_at: datetime
 
 
-class DistrictUpdate(BaseModel):
+ProposalStatus = Literal["Menunggu", "Disetujui", "Ditolak"]
+
+
+class DistrictEditProposalCreate(BaseModel):
     jarak_dari_wamena_km: Optional[float] = None
     estimasi_waktu_tempuh_jam: Optional[float] = None
-    jenis_akses: Optional[JenisAkses] = None
-    keterangan_akses: Optional[str] = None
+    jenis_akses: JenisAkses
+    keterangan_akses: str = ""
+    alasan: str
+    bukti_dukung_url: str = ""
+
+
+class DistrictEditProposalOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    district_id: int
+    jarak_dari_wamena_km: Optional[float] = None
+    estimasi_waktu_tempuh_jam: Optional[float] = None
+    jenis_akses: JenisAkses
+    keterangan_akses: str = ""
+    alasan: str
+    bukti_dukung_url: str = ""
+    status: ProposalStatus = "Menunggu"
+    proposed_by: str
+    approved_by: Optional[str] = None
+    created_at: datetime
+    decided_at: Optional[datetime] = None
 
 
 class DashboardStats(BaseModel):

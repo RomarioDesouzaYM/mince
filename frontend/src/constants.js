@@ -30,3 +30,23 @@ export const URGENCY_COLOR = {
   Tinggi: '#ea580c',
   Kritis: '#dc2626',
 }
+
+// Sequential (single-hue, light -> dark) shading for jumlah_laporan per distrik polygon.
+// Violet hue (H~285 in OKLCH), derived at the same L/C steps as the dataviz skill's
+// reference blue sequential ramp so it's structurally identical (monotonic lightness,
+// matching contrast at each step) but visually distinct from URGENCY_COLOR's
+// green/yellow/orange/red marker palette -- and from the old blue "distrik" tone.
+// Floor shifted to step 250 (contrast 2.10 vs the map surface) after step 100
+// (#dcdcfb, contrast 1.31) was found to read as invisible for zero-report distrik --
+// a sequential ramp's palest step needs >=2:1 contrast to still read as "a fill".
+export const REPORT_COUNT_COLOR_SCALE = [
+  { max: 0, color: '#acaaee' },
+  { max: 2, color: '#8e88e5' },
+  { max: 4, color: '#7266d3' },
+  { max: 6, color: '#584da9' },
+  { max: Infinity, color: '#3f367f' },
+]
+
+export function reportCountColor(count) {
+  return REPORT_COUNT_COLOR_SCALE.find((step) => count <= step.max).color
+}

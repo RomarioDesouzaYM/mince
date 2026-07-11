@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { logout } from '../api/auth'
+import { getRole, logout } from '../api/auth'
 
 const links = [
   { to: '/peta', label: 'Peta' },
@@ -8,8 +8,14 @@ const links = [
   { to: '/berita', label: 'Berita' },
 ]
 
+const APPROVER_ROLES = ['ketua_tim', 'kepala_bps']
+
 export default function Sidebar() {
   const navigate = useNavigate()
+  const isApprover = APPROVER_ROLES.includes(getRole())
+  const visibleLinks = isApprover
+    ? [...links, { to: '/persetujuan', label: 'Persetujuan' }]
+    : links
 
   function handleLogout() {
     logout()
@@ -24,7 +30,7 @@ export default function Sidebar() {
           <p className="text-xs text-gray-500">BPS Kab. Jayawijaya</p>
         </div>
         <nav className="flex flex-col gap-1">
-          {links.map((link) => (
+          {visibleLinks.map((link) => (
             <NavLink
               key={link.to}
               to={link.to}

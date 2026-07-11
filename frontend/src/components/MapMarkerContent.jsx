@@ -1,4 +1,4 @@
-export function DistrictMarkerContent({ district, counts, news = [], onEdit }) {
+export function DistrictMarkerContent({ district, counts, news = [] }) {
   return (
     <div className="text-sm">
       <p className="font-semibold">
@@ -14,6 +14,7 @@ export function DistrictMarkerContent({ district, counts, news = [], onEdit }) {
             : '—'}
       </p>
       <p>Jenis Akses: {district.jenis_akses}</p>
+      <p>Jumlah Laporan: {counts.total}</p>
       <p>Laporan Jaringan: {counts.jaringan}</p>
       <p>Laporan Listrik: {counts.listrik}</p>
       {district.weather && (
@@ -40,15 +41,6 @@ export function DistrictMarkerContent({ district, counts, news = [], onEdit }) {
             ))}
           </ul>
         </div>
-      )}
-      {onEdit && (
-        <button
-          type="button"
-          onClick={onEdit}
-          className="mt-2 text-blue-600 hover:underline"
-        >
-          Edit distrik ini
-        </button>
       )}
     </div>
   )
