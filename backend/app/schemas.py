@@ -131,6 +131,22 @@ class DistrictEditProposalOut(BaseModel):
     decided_at: Optional[datetime] = None
 
 
+class DistrictRiskOut(BaseModel):
+    district_id: int
+    kabupaten: str
+    distrik: str
+    jumlah_laporan: int
+    belum_selesai: int
+    urgensi_rata_rata: float
+    laporan_jaringan: int
+    laporan_listrik: int
+    jarak_dari_wamena_km: Optional[float] = None
+    estimasi_waktu_tempuh_jam: Optional[float] = None
+    jenis_akses: Optional[JenisAkses] = None
+    cuaca_saat_ini: Optional[WeatherSnapshotOut] = None
+    status_perhatian: Literal["Rendah", "Sedang", "Tinggi", "Kritis"]
+
+
 class DashboardStats(BaseModel):
     total: int
     baru: int

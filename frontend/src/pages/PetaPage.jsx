@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { listDistricts } from '../api/districts'
 import { listReports } from '../api/reports'
 import { listNews } from '../api/news'
+import { listDistrictRisk } from '../api/risk'
 import { URGENCY_COLOR, reportCountColor } from '../constants'
 import { buildDistrictBoundaryFeatureCollection } from '../data/districtBoundaryMap'
 import ReportFilters from '../components/ReportFilters'
@@ -18,6 +19,7 @@ const WAMENA_CENTER = [-4.0917, 138.95]
 const DISTRICT_BORDER_COLOR = '#374151'
 const JARINGAN_CATEGORY = 'Jaringan Komunikasi'
 const LISTRIK_CATEGORY = 'Listrik & Penerangan'
+const FALLBACK_FILL = '#d1d5db'
 
 const DISTRICT_BOUNDARY_FEATURES = buildDistrictBoundaryFeatureCollection().features
 
@@ -68,9 +70,11 @@ export default function PetaPage() {
   const [districts, setDistricts] = useState([])
   const [reports, setReports] = useState([])
   const [news, setNews] = useState([])
+  const [risk, setRisk] = useState([])
   const [error, setError] = useState('')
   const [filters, setFilters] = useState(emptyFilters)
   const [pickedId, setPickedId] = useState('')
+  const [shadingMode, setShadingMode] = useState('jumlah_laporan')
 
   useEffect(() => {
     listDistricts()
@@ -89,6 +93,18 @@ export default function PetaPage() {
       .then(setNews)
       .catch(() => {})
   }, [])
+
+  useEffect(() => {
+    listDistrictRisk()
+      .then(setRisk)
+      .catch(() => {})
+  }, [])
+
+  const riskByDistrict = useMemo(() => {
+    const map = {}
+    for (const r of risk) map[`${r.kabupaten}|${r.distrik}`] = r
+    return map
+  }, [risk])
 
   const filteredDistricts = useMemo(() => {
     if (!filters.kabupaten) return districts
@@ -112,11 +128,45 @@ export default function PetaPage() {
     return news.filter((n) => n.kabupaten_terkait === district.kabupaten).slice(0, 2)
   }
 
+  function fillColorFor(district, counts) {
+    if (shadingMode === 'status_perhatian') {
+      const statusPerhatian = riskByDistrict[`${district.kabupaten}|${district.distrik}`]?.status_perhatian
+      return URGENCY_COLOR[statusPerhatian] ?? FALLBACK_FILL
+    }
+    return reportCountColor(counts.total)
+  }
+
   return (
     <div>
       <h1 className="mb-6 text-2xl font-semibold text-gray-900">Peta</h1>
 
       <ReportFilters filters={filters} onChange={setFilters} className="mb-4" />
+
+      <div className="mb-4 flex items-center gap-2">
+        <span className="text-xs font-medium text-gray-500">Tampilkan:</span>
+        <button
+          type="button"
+          onClick={() => setShadingMode('jumlah_laporan')}
+          className={`rounded px-3 py-1.5 text-sm font-medium ${
+            shadingMode === 'jumlah_laporan'
+              ? 'bg-gray-900 text-white'
+              : 'text-gray-700 hover:bg-gray-100'
+          }`}
+        >
+          Jumlah Laporan
+        </button>
+        <button
+          type="button"
+          onClick={() => setShadingMode('status_perhatian')}
+          className={`rounded px-3 py-1.5 text-sm font-medium ${
+            shadingMode === 'status_perhatian'
+              ? 'bg-gray-900 text-white'
+              : 'text-gray-700 hover:bg-gray-100'
+          }`}
+        >
+          Status Perhatian
+        </button>
+      </div>
 
       {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
@@ -144,7 +194,7 @@ export default function PetaPage() {
                 pathOptions={{
                   color: DISTRICT_BORDER_COLOR,
                   weight: 1.5,
-                  fillColor: reportCountColor(counts.total),
+                  fillColor: fillColorFor(d, counts),
                   fillOpacity: 0.65,
                 }}
                 counts={counts}
@@ -170,7 +220,7 @@ export default function PetaPage() {
               />
             ))}
         </MapContainer>
-        <MapLegend />
+        <MapLegend mode={shadingMode} />
       </div>
       <p className="mb-6 text-xs text-gray-500">
         Batas wilayah distrik: Badan Informasi Geospasial (BIG) — layer Batas Wilayah

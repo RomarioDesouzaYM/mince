@@ -163,6 +163,60 @@ def decide_district_proposal(
     return proposal
 
 
+# --- Risk (rule-based status_perhatian, no composite score) ------------------
+
+URGENCY_SCORE = {"Rendah": 1, "Sedang": 2, "Tinggi": 3, "Kritis": 4}
+JARINGAN_CATEGORY = "Jaringan Komunikasi"
+LISTRIK_CATEGORY = "Listrik & Penerangan"
+
+
+def _status_perhatian(jumlah_laporan: int, belum_selesai: int, urgensi_rata_rata: float) -> str:
+    if belum_selesai >= 3 or urgensi_rata_rata >= 3.5:
+        return "Kritis"
+    if jumlah_laporan >= 5 or urgensi_rata_rata >= 2.5:
+        return "Tinggi"
+    if jumlah_laporan >= 2:
+        return "Sedang"
+    return "Rendah"
+
+
+def get_district_risk_list(db: Session) -> list[dict]:
+    districts = db.query(models.District).order_by(
+        models.District.kabupaten, models.District.distrik
+    ).all()
+    reports = db.query(models.Report).all()
+
+    by_district: dict[tuple[str, str], list[models.Report]] = {}
+    for r in reports:
+        by_district.setdefault((r.kabupaten, r.distrik), []).append(r)
+
+    result = []
+    for d in districts:
+        d_reports = by_district.get((d.kabupaten, d.distrik), [])
+        jumlah_laporan = len(d_reports)
+        belum_selesai = sum(1 for r in d_reports if r.status != "Selesai")
+        urgensi_rata_rata = (
+            sum(URGENCY_SCORE[r.urgency] for r in d_reports) / jumlah_laporan
+            if jumlah_laporan else 0.0
+        )
+        result.append({
+            "district_id": d.id,
+            "kabupaten": d.kabupaten,
+            "distrik": d.distrik,
+            "jumlah_laporan": jumlah_laporan,
+            "belum_selesai": belum_selesai,
+            "urgensi_rata_rata": round(urgensi_rata_rata, 2),
+            "laporan_jaringan": sum(1 for r in d_reports if r.category == JARINGAN_CATEGORY),
+            "laporan_listrik": sum(1 for r in d_reports if r.category == LISTRIK_CATEGORY),
+            "jarak_dari_wamena_km": d.jarak_dari_wamena_km,
+            "estimasi_waktu_tempuh_jam": d.estimasi_waktu_tempuh_jam,
+            "jenis_akses": d.jenis_akses,
+            "cuaca_saat_ini": d.weather,
+            "status_perhatian": _status_perhatian(jumlah_laporan, belum_selesai, urgensi_rata_rata),
+        })
+    return result
+
+
 # --- News (AUTO — scheduler-populated only) -----------------------------------
 
 def list_news(

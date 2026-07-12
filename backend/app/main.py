@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import Base, engine
-from app.routers import admin, auth, dashboard, district_proposals, districts, news, reports
+from app.routers import admin, auth, dashboard, district_proposals, districts, news, reports, risk
 from app.scheduler import start_scheduler
 
 Base.metadata.create_all(bind=engine)
@@ -37,6 +37,7 @@ app.include_router(district_proposals.router)
 app.include_router(dashboard.router)
 app.include_router(news.router)
 app.include_router(admin.router)
+app.include_router(risk.router)
 
 
 @app.get("/health")

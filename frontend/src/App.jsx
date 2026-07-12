@@ -9,6 +9,7 @@ import AddReportPage from './pages/AddReportPage'
 import BeritaPage from './pages/BeritaPage'
 import ProposeDistrictEditPage from './pages/ProposeDistrictEditPage'
 import ApprovalQueuePage from './pages/ApprovalQueuePage'
+import RisikoPage from './pages/RisikoPage'
 
 export default function App() {
   return (
@@ -24,6 +25,7 @@ export default function App() {
             <Route path="/laporan/tambah" element={<AddReportPage />} />
             <Route path="/berita" element={<BeritaPage />} />
             <Route path="/distrik/:id/ajukan" element={<ProposeDistrictEditPage />} />
+            <Route path="/risiko" element={<RisikoPage />} />
           </Route>
         </Route>
 
