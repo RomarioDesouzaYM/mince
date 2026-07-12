@@ -4,14 +4,10 @@ export function DistrictMarkerContent({ district, counts, news = [] }) {
       <p className="font-semibold">
         {district.distrik}, {district.kabupaten}
       </p>
-      <p>Jarak dari Wamena: {district.jarak_dari_wamena_km ?? '—'} km</p>
       <p>
-        Waktu tempuh:{' '}
-        {district.jenis_akses === 'udara'
-          ? 'Akses udara'
-          : district.estimasi_waktu_tempuh_jam != null
-            ? `${district.estimasi_waktu_tempuh_jam} jam`
-            : '—'}
+        Jarak dari Wamena: {district.jarak_dari_wamena_km ?? '—'} km
+        {district.estimasi_waktu_tempuh_jam != null &&
+          ` (±${district.estimasi_waktu_tempuh_jam} jam)`}
       </p>
       <p>Jenis Akses: {district.jenis_akses}</p>
       <p>Jumlah Laporan: {counts.total}</p>
