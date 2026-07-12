@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CircleMarker, MapContainer, Popup, TileLayer, Tooltip, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, useMap } from 'react-leaflet'
 import { Link } from 'react-router-dom'
 import { listDistricts } from '../api/districts'
 import { listReports } from '../api/reports'
@@ -9,19 +9,7 @@ import { buildDistrictBoundaryFeatureCollection } from '../data/districtBoundary
 import ReportFilters from '../components/ReportFilters'
 import MapLegend from '../components/MapLegend'
 import DistrictPolygon from '../components/DistrictPolygon'
-import { ReportMarkerContent } from '../components/MapMarkerContent'
-
-function useIsTouchDevice() {
-  const [isTouch, setIsTouch] = useState(false)
-  useEffect(() => {
-    const query = window.matchMedia('(hover: none)')
-    setIsTouch(query.matches)
-    const handler = (e) => setIsTouch(e.matches)
-    query.addEventListener('change', handler)
-    return () => query.removeEventListener('change', handler)
-  }, [])
-  return isTouch
-}
+import ReportMarker from '../components/ReportMarker'
 
 const WAMENA_CENTER = [-4.0917, 138.95]
 // Neutral, deliberately outside the violet fill ramp so the border stays visible
@@ -58,6 +46,24 @@ function FitBounds({ districts }) {
   return null
 }
 
+// Report markers must render above the choropleth polygons regardless of JSX/DOM
+// order (which is fragile against re-renders reshuffling insertion order within the
+// shared overlayPane) -- a dedicated pane with a higher z-index than overlayPane
+// (400) guarantees the stacking order structurally instead.
+const REPORT_PANE_NAME = 'reportMarkers'
+const REPORT_PANE_Z_INDEX = 650
+
+function CreateReportPane() {
+  const map = useMap()
+  useEffect(() => {
+    if (!map.getPane(REPORT_PANE_NAME)) {
+      map.createPane(REPORT_PANE_NAME)
+      map.getPane(REPORT_PANE_NAME).style.zIndex = REPORT_PANE_Z_INDEX
+    }
+  }, [map])
+  return null
+}
+
 export default function PetaPage() {
   const [districts, setDistricts] = useState([])
   const [reports, setReports] = useState([])
@@ -65,7 +71,6 @@ export default function PetaPage() {
   const [error, setError] = useState('')
   const [filters, setFilters] = useState(emptyFilters)
   const [pickedId, setPickedId] = useState('')
-  const isTouch = useIsTouchDevice()
 
   useEffect(() => {
     listDistricts()
@@ -122,6 +127,7 @@ export default function PetaPage() {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
           <FitBounds districts={filteredDistricts} />
+          <CreateReportPane />
 
           {DISTRICT_BOUNDARY_FEATURES.map((feature) => {
             const { kabupaten, distrik } = feature.properties
@@ -150,26 +156,18 @@ export default function PetaPage() {
           {reports
             .filter((r) => r.latitude != null && r.longitude != null)
             .map((r) => (
-              <CircleMarker
+              <ReportMarker
                 key={`report-${r.id}`}
+                report={r}
                 center={[r.latitude, r.longitude]}
                 radius={6}
+                pane={REPORT_PANE_NAME}
                 pathOptions={{
                   color: URGENCY_COLOR[r.urgency] ?? '#6b7280',
                   fillColor: URGENCY_COLOR[r.urgency] ?? '#6b7280',
                   fillOpacity: 0.9,
                 }}
-              >
-                {isTouch ? (
-                  <Popup>
-                    <ReportMarkerContent report={r} />
-                  </Popup>
-                ) : (
-                  <Tooltip sticky interactive>
-                    <ReportMarkerContent report={r} />
-                  </Tooltip>
-                )}
-              </CircleMarker>
+              />
             ))}
         </MapContainer>
         <MapLegend />

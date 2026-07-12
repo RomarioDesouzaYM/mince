@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { CircleMarker, MapContainer, TileLayer, useMap, useMapEvents } from 'react-leaflet'
 import { createReport } from '../api/reports'
 import { listDistricts } from '../api/districts'
 import { CATEGORIES, ROLES, URGENCY } from '../constants'
+
+const WAMENA_CENTER = [-4.0917, 138.95]
 
 const emptyForm = {
   date: new Date().toISOString().slice(0, 10),
@@ -15,6 +18,52 @@ const emptyForm = {
   source: '',
   submitted_by_role: ROLES[0],
   bukti_dukung_url: '',
+  latitude: '',
+  longitude: '',
+}
+
+function RecenterMap({ center }) {
+  const map = useMap()
+  useEffect(() => {
+    map.setView(center)
+  }, [center, map])
+  return null
+}
+
+function ClickToPick({ onPick }) {
+  useMapEvents({
+    click(e) {
+      onPick(e.latlng.lat, e.latlng.lng)
+    },
+  })
+  return null
+}
+
+function LocationPicker({ center, position, onPick }) {
+  return (
+    <div className="overflow-hidden rounded-lg border-2 border-dashed border-blue-300 bg-blue-50/40 p-2">
+      <p className="mb-2 text-xs font-medium text-blue-700">
+        Klik peta untuk menandai lokasi bukti dukung
+      </p>
+      <div className="h-48 w-full overflow-hidden rounded">
+        <MapContainer center={center} zoom={10} className="h-full w-full">
+          <TileLayer
+            attribution="&copy; OpenStreetMap contributors"
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          <RecenterMap center={center} />
+          <ClickToPick onPick={onPick} />
+          {position && (
+            <CircleMarker
+              center={position}
+              radius={9}
+              pathOptions={{ color: '#ea580c', fillColor: '#ea580c', fillOpacity: 0.9 }}
+            />
+          )}
+        </MapContainer>
+      </div>
+    </div>
+  )
 }
 
 export default function AddReportPage() {
@@ -39,6 +88,21 @@ export default function AddReportPage() {
     [districts, form.kabupaten],
   )
 
+  // Approximate/fallback center only (plain average, not area-weighted) — good
+  // enough to point the picker at the right part of the map, not a precise centroid.
+  const pickerCenter = useMemo(() => {
+    const inKabupaten = districts.filter((d) => d.kabupaten === form.kabupaten)
+    if (inKabupaten.length === 0) return WAMENA_CENTER
+    const avgLat = inKabupaten.reduce((sum, d) => sum + d.latitude, 0) / inKabupaten.length
+    const avgLng = inKabupaten.reduce((sum, d) => sum + d.longitude, 0) / inKabupaten.length
+    return [avgLat, avgLng]
+  }, [form.kabupaten, districts])
+
+  const pickedPosition =
+    form.latitude !== '' && form.longitude !== ''
+      ? [Number(form.latitude), Number(form.longitude)]
+      : null
+
   function update(field, value) {
     setForm((prev) => ({ ...prev, [field]: value }))
   }
@@ -47,12 +111,21 @@ export default function AddReportPage() {
     setForm((prev) => ({ ...prev, kabupaten: value, distrik: '' }))
   }
 
+  function handlePick(lat, lng) {
+    setForm((prev) => ({ ...prev, latitude: lat.toFixed(5), longitude: lng.toFixed(5) }))
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
     setSubmitting(true)
     try {
-      await createReport(form)
+      const payload = {
+        ...form,
+        latitude: form.latitude === '' ? null : Number(form.latitude),
+        longitude: form.longitude === '' ? null : Number(form.longitude),
+      }
+      await createReport(payload)
       navigate('/laporan', { replace: true })
     } catch {
       setError('Gagal menyimpan laporan. Periksa kembali isian Anda.')
@@ -199,6 +272,33 @@ export default function AddReportPage() {
             placeholder="https://drive.google.com/..."
           />
         </Field>
+
+        <div>
+          <span className="mb-1 block text-sm font-medium text-gray-700">
+            Lokasi Bukti Dukung (opsional)
+          </span>
+          <LocationPicker center={pickerCenter} position={pickedPosition} onPick={handlePick} />
+          <div className="mt-2 grid grid-cols-2 gap-4">
+            <Field label="Latitude">
+              <input
+                type="number"
+                step="0.00001"
+                value={form.latitude}
+                onChange={(e) => update('latitude', e.target.value)}
+                className="input"
+              />
+            </Field>
+            <Field label="Longitude">
+              <input
+                type="number"
+                step="0.00001"
+                value={form.longitude}
+                onChange={(e) => update('longitude', e.target.value)}
+                className="input"
+              />
+            </Field>
+          </div>
+        </div>
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 
