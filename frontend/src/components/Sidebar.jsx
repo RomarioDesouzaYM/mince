@@ -7,6 +7,7 @@ const links = [
   { to: '/laporan', label: 'Laporan' },
   { to: '/risiko', label: 'Risiko' },
   { to: '/berita', label: 'Berita' },
+  { to: '/ringkasan', label: 'Ringkasan' },
 ]
 
 const APPROVER_ROLES = ['ketua_tim', 'kepala_bps']
@@ -24,7 +25,7 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="flex h-full w-56 flex-col justify-between border-r border-gray-200 bg-white p-4">
+    <aside className="flex h-full w-56 flex-col justify-between border-r border-gray-200 bg-white p-4 print:hidden">
       <div>
         <div className="mb-8 px-2">
           <h1 className="text-lg font-semibold text-gray-900">MINCE</h1>

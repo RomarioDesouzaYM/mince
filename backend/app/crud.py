@@ -217,6 +217,67 @@ def get_district_risk_list(db: Session) -> list[dict]:
     return result
 
 
+# --- Daily summary (per-kabupaten rollup, no composite score) ----------------
+
+TOP_NEWS_LIMIT = 5
+KABUPATEN_ORDER = ["Jayawijaya", "Yalimo", "Mamberamo Tengah"]
+
+
+def _mean(values: list) -> Optional[float]:
+    present = [v for v in values if v is not None]
+    return round(sum(present) / len(present), 1) if present else None
+
+
+def _mode(values: list) -> Optional[str]:
+    present = [v for v in values if v]
+    if not present:
+        return None
+    counts: dict[str, int] = {}
+    for v in present:
+        counts[v] = counts.get(v, 0) + 1
+    return max(counts, key=counts.get)
+
+
+def get_daily_summary(db: Session) -> dict:
+    districts = db.query(models.District).all()
+    reports = db.query(models.Report).all()
+
+    by_kabupaten: dict[str, list[models.District]] = {}
+    for d in districts:
+        by_kabupaten.setdefault(d.kabupaten, []).append(d)
+
+    reports_by_kabupaten: dict[str, list[models.Report]] = {}
+    for r in reports:
+        reports_by_kabupaten.setdefault(r.kabupaten, []).append(r)
+
+    kabupaten_rows = []
+    for kab in KABUPATEN_ORDER:
+        kab_districts = by_kabupaten.get(kab, [])
+        kab_reports = reports_by_kabupaten.get(kab, [])
+        kabupaten_rows.append({
+            "kabupaten": kab,
+            "jarak_rata_rata_km": _mean([d.jarak_dari_wamena_km for d in kab_districts]),
+            "waktu_tempuh_rata_rata_jam": _mean([d.estimasi_waktu_tempuh_jam for d in kab_districts]),
+            "laporan_jaringan": sum(1 for r in kab_reports if r.category == JARINGAN_CATEGORY),
+            "laporan_listrik": sum(1 for r in kab_reports if r.category == LISTRIK_CATEGORY),
+            "suhu_rata_rata": _mean([d.weather.suhu for d in kab_districts if d.weather]),
+            "kondisi_dominan": _mode([d.weather.kondisi for d in kab_districts if d.weather]),
+        })
+
+    berita_terkini = (
+        db.query(models.News)
+        .order_by(models.News.created_at.desc())
+        .limit(TOP_NEWS_LIMIT)
+        .all()
+    )
+
+    return {
+        "generated_at": datetime.now(timezone.utc),
+        "kabupaten": kabupaten_rows,
+        "berita_terkini": berita_terkini,
+    }
+
+
 # --- News (AUTO — scheduler-populated only) -----------------------------------
 
 def list_news(

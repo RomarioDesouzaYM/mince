@@ -154,3 +154,19 @@ class DashboardStats(BaseModel):
     belum_selesai: int
     kategori_dominan: Optional[str] = None
     distrik_terbanyak: Optional[str] = None
+
+
+class KabupatenSummaryOut(BaseModel):
+    kabupaten: str
+    jarak_rata_rata_km: Optional[float] = None
+    waktu_tempuh_rata_rata_jam: Optional[float] = None
+    laporan_jaringan: int
+    laporan_listrik: int
+    suhu_rata_rata: Optional[float] = None
+    kondisi_dominan: Optional[str] = None
+
+
+class DailySummaryOut(BaseModel):
+    generated_at: datetime
+    kabupaten: list[KabupatenSummaryOut]
+    berita_terkini: list[NewsOut]

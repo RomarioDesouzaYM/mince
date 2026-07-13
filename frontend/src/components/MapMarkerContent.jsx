@@ -19,6 +19,18 @@ export function DistrictMarkerContent({ district, counts, news = [] }) {
           {district.weather.kondisi ? `, ${district.weather.kondisi}` : ''}
         </p>
       )}
+      {district.weather && (
+        <p>
+          Besok:{' '}
+          {district.weather.besok_min != null && district.weather.besok_max != null
+            ? `${Math.round(district.weather.besok_min)}–${Math.round(district.weather.besok_max)}°C`
+            : '—'}
+          {district.weather.besok_kondisi ? `, ${district.weather.besok_kondisi}` : ''}
+          {district.weather.peluang_hujan != null
+            ? `, Peluang hujan ${district.weather.peluang_hujan}%`
+            : ''}
+        </p>
+      )}
       {news.length > 0 && (
         <div className="mt-2">
           <p className="font-medium">Berita Terkait:</p>

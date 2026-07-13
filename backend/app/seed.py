@@ -26,7 +26,7 @@ from datetime import datetime, timedelta, timezone
 import random
 
 from app.database import SessionLocal, Base, engine
-from app.models import District, Report
+from app.models import District, News, Report
 
 random.seed(7)
 
@@ -112,6 +112,55 @@ SAMPLE_TITLES = {
     "Berita & Informasi Lain": "Informasi umum dari lapangan",
 }
 
+# Offline demo fallback ONLY — used when the news table is empty (e.g. a fresh demo
+# environment with no internet access for scheduler.ingest_news()). Never overwrites
+# real scheduler-fetched rows; see seed_news_fallback()'s empty-table guard. sumber
+# and url are intentionally non-real (example.com) so this is never mistaken for an
+# actual published article. (kategori, kabupaten_terkait, judul, ringkasan)
+NEWS_SEED = [
+    ("Bencana", "Jayawijaya", "Longsor tutup akses jalan Wamena–Kurulu",
+     "Material longsor menutup sebagian badan jalan, kendaraan roda empat dialihkan sementara."),
+    ("Keamanan", "Yalimo", "Aparat tingkatkan patroli di wilayah Yalimo",
+     "Patroli gabungan TNI-Polri diperketat menyusul laporan warga soal aktivitas mencurigakan."),
+    ("Cuaca", None, "BMKG: Hujan lebat diperkirakan landa Pegunungan Tengah Papua",
+     "Prakiraan cuaca menunjukkan potensi hujan lebat disertai angin kencang beberapa hari ke depan."),
+    ("Bencana", "Mamberamo Tengah", "Banjir rendam permukiman di Kobakma",
+     "Sejumlah rumah warga terendam setelah curah hujan tinggi mengguyur wilayah Kobakma."),
+    ("Keamanan", "Jayawijaya", "Situasi keamanan Wamena kembali kondusif",
+     "Aktivitas warga dan roda perekonomian berangsur normal pascapenambahan personel keamanan."),
+    ("Cuaca", "Yalimo", "Kabut tebal ganggu penerbangan perintis ke Elelim",
+     "Sejumlah penerbangan perintis tertunda akibat jarak pandang terbatas di Bandara Elelim."),
+    ("Umum", None, "Pemkab Jayawijaya gelar rapat koordinasi lintas distrik",
+     "Rapat membahas percepatan pembangunan dan pendataan wilayah terpencil."),
+    ("Bencana", "Jayawijaya", "Gempa bumi guncang wilayah Pegunungan Tengah, tidak ada korban",
+     "Guncangan dirasakan warga selama beberapa detik, belum ada laporan kerusakan signifikan."),
+    ("Keamanan", "Mamberamo Tengah", "TNI-Polri kawal distribusi logistik ke Mamberamo Tengah",
+     "Pengawalan dilakukan untuk memastikan kelancaran distribusi bahan pokok ke distrik terpencil."),
+    ("Cuaca", "Jayawijaya", "Cuaca ekstrem berpotensi ganggu aktivitas lapangan pekan ini",
+     "Petugas lapangan diimbau memperhatikan kondisi cuaca sebelum melakukan kunjungan distrik."),
+]
+
+
+def seed_news_fallback(db) -> int:
+    """Insert NEWS_SEED only if the news table is currently empty. Idempotent — safe
+    to call on every seed() run without duplicating or overwriting real ingested news."""
+    if db.query(News).count() > 0:
+        return 0
+    now = datetime.now(timezone.utc)
+    for i, (kategori, kabupaten, judul, ringkasan) in enumerate(NEWS_SEED, start=1):
+        db.add(News(
+            tanggal=None,
+            judul=judul,
+            ringkasan=ringkasan,
+            kategori=kategori,
+            sumber="Contoh offline (demo)",
+            url=f"https://example.com/demo-berita/{i}",
+            kabupaten_terkait=kabupaten,
+            created_at=now,
+        ))
+    db.commit()
+    return len(NEWS_SEED)
+
 
 def seed():
     Base.metadata.create_all(bind=engine)
@@ -166,7 +215,12 @@ def seed():
             )
             db.add(report)
         db.commit()
-        print(f"Seeded {len(district_rows)} districts and {total} reports.")
+
+        news_inserted = seed_news_fallback(db)
+        print(
+            f"Seeded {len(district_rows)} districts, {total} reports, "
+            f"{news_inserted} demo news rows (0 = news table already populated)."
+        )
     finally:
         db.close()
 
