@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom'
+
 export function DistrictMarkerContent({ district, counts, news = [] }) {
   return (
     <div className="text-sm">
@@ -31,6 +33,12 @@ export function DistrictMarkerContent({ district, counts, news = [] }) {
             : ''}
         </p>
       )}
+      <Link
+        to={`/distrik/${district.id}/rute`}
+        className="mt-2 inline-block text-blue-600 hover:underline"
+      >
+        Lihat Rute
+      </Link>
       {news.length > 0 && (
         <div className="mt-2">
           <p className="font-medium">Berita Terkait:</p>

@@ -17,6 +17,19 @@ export const ROLES = ['Pegawai Organik', 'Mitra', 'Admin']
 
 export const NEWS_CATEGORIES = ['Keamanan', 'Bencana', 'Cuaca', 'Umum']
 
+export const KONDISI_JALAN = ['baik', 'rusak ringan', 'rusak sedang', 'rusak berat']
+
+export const KEGIATAN = [
+  'Sensus Ekonomi', 'Susenas Maret', 'Susenas Agustus', 'Sakernas Februari',
+  'Sakernas Mei', 'Sakernas Agustus', 'Sakernas November', 'PODES (Potensi Desa)',
+  'Seruti Triwulan 1', 'Seruti Triwulan 2', 'Seruti Triwulan 3', 'Seruti Triwulan 4',
+  'VHTS', 'SHK (Survei Harga Konsumen)', 'Desa Cantik', 'IMK Tahunan',
+  'IMK Triwulanan', 'Statpolkam', 'KSA', 'LPTB', 'SKTH', 'SKTR', 'STPIM',
+  'Captive Power', 'FIP HORTI', 'SKGB', 'SKP', 'DPA', 'DPPD UTL', 'SKLNPT',
+  'SKTNP', 'SKSPPI', 'SKNP', 'SHKK', 'SHPB', 'SHP', 'SHPJ', 'SVPEB', 'SHPED',
+  'V3', 'VPACK', 'VRES', 'VHTL', 'VDTW', 'Transportasi Udara', 'KSP', 'SBH', 'NTP',
+]
+
 export const URGENCY_BADGE = {
   Rendah: 'bg-green-100 text-green-800',
   Sedang: 'bg-yellow-100 text-yellow-800',

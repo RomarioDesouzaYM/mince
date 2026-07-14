@@ -12,6 +12,17 @@ Urgency = Literal["Rendah", "Sedang", "Tinggi", "Kritis"]
 Status = Literal["Baru", "Dipantau", "Ditindaklanjuti", "Selesai"]
 Role = Literal["Pegawai Organik", "Mitra", "Admin"]
 JenisAkses = Literal["darat_baik", "darat_sulit", "udara"]
+KondisiJalan = Literal["baik", "rusak ringan", "rusak sedang", "rusak berat"]
+Kegiatan = Literal[
+    "Sensus Ekonomi", "Susenas Maret", "Susenas Agustus", "Sakernas Februari",
+    "Sakernas Mei", "Sakernas Agustus", "Sakernas November", "PODES (Potensi Desa)",
+    "Seruti Triwulan 1", "Seruti Triwulan 2", "Seruti Triwulan 3", "Seruti Triwulan 4",
+    "VHTS", "SHK (Survei Harga Konsumen)", "Desa Cantik", "IMK Tahunan",
+    "IMK Triwulanan", "Statpolkam", "KSA", "LPTB", "SKTH", "SKTR", "STPIM",
+    "Captive Power", "FIP HORTI", "SKGB", "SKP", "DPA", "DPPD UTL", "SKLNPT",
+    "SKTNP", "SKSPPI", "SKNP", "SHKK", "SHPB", "SHP", "SHPJ", "SVPEB", "SHPED",
+    "V3", "VPACK", "VRES", "VHTL", "VDTW", "Transportasi Udara", "KSP", "SBH", "NTP",
+]
 
 
 class ReportBase(BaseModel):
@@ -20,6 +31,7 @@ class ReportBase(BaseModel):
     distrik: str
     category: Category
     urgency: Urgency
+    kegiatan: Kegiatan
     title: str
     description: str = ""
     source: str = ""
@@ -41,6 +53,7 @@ class ReportUpdate(BaseModel):
     distrik: Optional[str] = None
     category: Optional[Category] = None
     urgency: Optional[Urgency] = None
+    kegiatan: Optional[Kegiatan] = None
     title: Optional[str] = None
     description: Optional[str] = None
     source: Optional[str] = None
@@ -84,7 +97,20 @@ class DistrictOut(BaseModel):
     estimasi_waktu_tempuh_jam: Optional[float] = None
     jenis_akses: JenisAkses = "darat_baik"
     keterangan_akses: str = ""
+    kondisi_jalan: Optional[KondisiJalan] = None
     weather: Optional[WeatherSnapshotOut] = None
+
+
+class RouteOut(BaseModel):
+    available: bool
+    reason: Optional[str] = None
+    geometry: Optional[list[list[float]]] = None
+    distance_km: Optional[float] = None
+    duration_min: Optional[float] = None
+
+
+class KondisiJalanUpdate(BaseModel):
+    kondisi_jalan: KondisiJalan
 
 
 class NewsOut(BaseModel):

@@ -100,6 +100,16 @@ CATEGORIES = [
 URGENCY = ["Rendah", "Sedang", "Tinggi", "Kritis"]
 STATUS = ["Baru", "Dipantau", "Ditindaklanjuti", "Selesai"]
 ROLES = ["Pegawai Organik", "Mitra", "Admin"]
+KEGIATAN = [
+    "Sensus Ekonomi", "Susenas Maret", "Susenas Agustus", "Sakernas Februari",
+    "Sakernas Mei", "Sakernas Agustus", "Sakernas November", "PODES (Potensi Desa)",
+    "Seruti Triwulan 1", "Seruti Triwulan 2", "Seruti Triwulan 3", "Seruti Triwulan 4",
+    "VHTS", "SHK (Survei Harga Konsumen)", "Desa Cantik", "IMK Tahunan",
+    "IMK Triwulanan", "Statpolkam", "KSA", "LPTB", "SKTH", "SKTR", "STPIM",
+    "Captive Power", "FIP HORTI", "SKGB", "SKP", "DPA", "DPPD UTL", "SKLNPT",
+    "SKTNP", "SKSPPI", "SKNP", "SHKK", "SHPB", "SHP", "SHPJ", "SVPEB", "SHPED",
+    "V3", "VPACK", "VRES", "VHTL", "VDTW", "Transportasi Udara", "KSP", "SBH", "NTP",
+]
 
 SAMPLE_TITLES = {
     "Transportasi & Akses Jalan": "Jalan tergerus longsor menuju distrik",
@@ -200,6 +210,7 @@ def seed():
                 distrik=d.distrik,
                 category=cat,
                 urgency=urg,
+                kegiatan=random.choice(KEGIATAN),
                 title=SAMPLE_TITLES.get(cat, "Laporan lapangan"),
                 description=f"{SAMPLE_TITLES.get(cat, 'Laporan')} di {d.distrik}.",
                 source="Laporan lapangan",

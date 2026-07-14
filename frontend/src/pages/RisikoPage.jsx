@@ -1,18 +1,30 @@
 import { useEffect, useState } from 'react'
 import { listDistrictRisk } from '../api/risk'
 import { URGENCY_BADGE } from '../constants'
+import ReportFilters from '../components/ReportFilters'
+
+const emptyFilters = {
+  kabupaten: '',
+  category: '',
+  status: '',
+  urgency: '',
+  submitted_by_role: '',
+  kegiatan: '',
+}
 
 export default function RisikoPage() {
   const [rows, setRows] = useState([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [filters, setFilters] = useState(emptyFilters)
 
   useEffect(() => {
-    listDistrictRisk()
+    setLoading(true)
+    listDistrictRisk(filters)
       .then(setRows)
       .catch(() => setError('Gagal memuat data indikator risiko'))
       .finally(() => setLoading(false))
-  }, [])
+  }, [filters])
 
   return (
     <div>
@@ -25,6 +37,8 @@ export default function RisikoPage() {
         <strong>Rendah</strong>. Jarak, waktu tempuh, dan cuaca ditampilkan sebagai
         konteks saja — bukan bagian dari aturan ini.
       </p>
+
+      <ReportFilters filters={filters} onChange={setFilters} className="mb-4" />
 
       {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
       {loading && <p className="text-sm text-gray-500">Memuat...</p>}

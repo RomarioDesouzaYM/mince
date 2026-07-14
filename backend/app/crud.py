@@ -1,10 +1,16 @@
 from datetime import datetime, timezone
+import logging
+import math
+import os
 from typing import Optional
 
+import httpx
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app import models, schemas
+
+log = logging.getLogger("mince.crud")
 
 
 # --- Reports ---------------------------------------------------------------
@@ -29,6 +35,7 @@ def list_reports(
     urgency: Optional[str] = None,
     status: Optional[str] = None,
     submitted_by_role: Optional[str] = None,
+    kegiatan: Optional[str] = None,
 ) -> list[models.Report]:
     query = db.query(models.Report)
     if kabupaten:
@@ -43,6 +50,8 @@ def list_reports(
         query = query.filter(models.Report.status == status)
     if submitted_by_role:
         query = query.filter(models.Report.submitted_by_role == submitted_by_role)
+    if kegiatan:
+        query = query.filter(models.Report.kegiatan == kegiatan)
     return query.order_by(models.Report.created_at.desc()).all()
 
 
@@ -115,6 +124,132 @@ def get_district(db: Session, district_id: int) -> Optional[models.District]:
     return db.get(models.District, district_id)
 
 
+def update_kondisi_jalan(db: Session, district_id: int, kondisi_jalan: str) -> Optional[models.District]:
+    district = db.get(models.District, district_id)
+    if district is None:
+        return None
+    district.kondisi_jalan = kondisi_jalan
+    db.commit()
+    db.refresh(district)
+    return district
+
+
+# --- Route (ORS-backed, cached in DistrictRoute after the first lookup) ------
+
+SNAP_DISTANCE_THRESHOLD_KM = 2.0
+
+
+def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    r = 6371.0
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dphi, dlambda = math.radians(lat2 - lat1), math.radians(lon2 - lon1)
+    a = math.sin(dphi / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dlambda / 2) ** 2
+    return 2 * r * math.asin(math.sqrt(a))
+
+
+def _fetch_ors_route(db: Session, district: models.District) -> dict:
+    """Returns a dict shaped for DistrictRoute, plus an internal '_cacheable' flag
+    (True for a real route or a confirmed no-reliable-road-data verdict, False for a
+    transient provider error that should be retried on the next request instead)."""
+    origin = (
+        db.query(models.District)
+        .filter(models.District.kabupaten == "Jayawijaya", models.District.distrik == "Wamena Kota")
+        .first()
+    )
+    if origin is None:
+        origin_lat, origin_lng = -4.0917, 138.9500  # defensive fallback, should never trigger
+    else:
+        origin_lat, origin_lng = origin.latitude, origin.longitude
+
+    try:
+        r = httpx.get(
+            "https://api.openrouteservice.org/v2/directions/driving-car",
+            headers={"Authorization": os.getenv("ORS_API_KEY")},
+            params={
+                "start": f"{origin_lng},{origin_lat}",
+                "end": f"{district.longitude},{district.latitude}",
+            },
+            timeout=15,
+        )
+        r.raise_for_status()
+        data = r.json()
+        coords = data["features"][0]["geometry"]["coordinates"]  # [[lon, lat], ...]
+        segment = data["features"][0]["properties"]["segments"][0]
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 404:
+            # ORS's own routing engine found no route at all between these points --
+            # the same durable "not really reachable by road" verdict the snap-distance
+            # check below exists to catch, just signaled directly instead of computed
+            # from geometry. Cacheable, same as a failed snap-distance check.
+            log.info("ORS found no route for %s (404) -- no_reliable_road_data", district.distrik)
+            return {
+                "available": False, "reason": "no_reliable_road_data", "geometry": None,
+                "distance_km": None, "duration_min": None, "_cacheable": True,
+            }
+        log.warning("ORS route fetch failed for %s: %s", district.distrik, e)
+        return {
+            "available": False, "reason": "provider_error", "geometry": None,
+            "distance_km": None, "duration_min": None, "_cacheable": False,
+        }
+    except Exception as e:  # noqa: BLE001
+        log.warning("ORS route fetch failed for %s: %s", district.distrik, e)
+        return {
+            "available": False, "reason": "provider_error", "geometry": None,
+            "distance_km": None, "duration_min": None, "_cacheable": False,
+        }
+
+    route_end_lng, route_end_lat = coords[-1]
+    snap_km = _haversine_km(district.latitude, district.longitude, route_end_lat, route_end_lng)
+    if snap_km > SNAP_DISTANCE_THRESHOLD_KM:
+        return {
+            "available": False, "reason": "no_reliable_road_data", "geometry": None,
+            "distance_km": None, "duration_min": None, "_cacheable": True,
+        }
+
+    return {
+        "available": True,
+        "reason": None,
+        "geometry": [[lat, lon] for lon, lat in coords],
+        "distance_km": round(segment["distance"] / 1000, 1),
+        "duration_min": round(segment["duration"] / 60, 1),
+        "_cacheable": True,
+    }
+
+
+def get_or_fetch_district_route(db: Session, district: models.District) -> dict:
+    cached = db.get(models.DistrictRoute, district.id)
+    if cached is not None:
+        return {
+            "available": cached.available,
+            "reason": cached.reason,
+            "geometry": cached.geometry,
+            "distance_km": cached.distance_km,
+            "duration_min": cached.duration_min,
+        }
+
+    if district.jenis_akses == "udara":
+        result = {
+            "available": False, "reason": "udara", "geometry": None,
+            "distance_km": None, "duration_min": None, "_cacheable": True,
+        }
+    else:
+        result = _fetch_ors_route(db, district)
+
+    if result.pop("_cacheable"):
+        db.add(models.DistrictRoute(
+            distrik_id=district.id,
+            available=result["available"],
+            reason=result["reason"],
+            geometry=result["geometry"],
+            distance_km=result["distance_km"],
+            duration_min=result["duration_min"],
+            checked_at=datetime.now(timezone.utc),
+        ))
+        db.commit()
+
+    return result
+
+
 # --- District edit proposals (MANUAL, approval-gated) -------------------------
 
 def create_district_proposal(
@@ -180,11 +315,32 @@ def _status_perhatian(jumlah_laporan: int, belum_selesai: int, urgensi_rata_rata
     return "Rendah"
 
 
-def get_district_risk_list(db: Session) -> list[dict]:
+def get_district_risk_list(
+    db: Session,
+    kabupaten: Optional[str] = None,
+    category: Optional[str] = None,
+    urgency: Optional[str] = None,
+    status: Optional[str] = None,
+    submitted_by_role: Optional[str] = None,
+    kegiatan: Optional[str] = None,
+) -> list[dict]:
     districts = db.query(models.District).order_by(
         models.District.kabupaten, models.District.distrik
     ).all()
-    reports = db.query(models.Report).all()
+    query = db.query(models.Report)
+    if kabupaten:
+        query = query.filter(models.Report.kabupaten == kabupaten)
+    if category:
+        query = query.filter(models.Report.category == category)
+    if urgency:
+        query = query.filter(models.Report.urgency == urgency)
+    if status:
+        query = query.filter(models.Report.status == status)
+    if submitted_by_role:
+        query = query.filter(models.Report.submitted_by_role == submitted_by_role)
+    if kegiatan:
+        query = query.filter(models.Report.kegiatan == kegiatan)
+    reports = query.all()
 
     by_district: dict[tuple[str, str], list[models.Report]] = {}
     for r in reports:

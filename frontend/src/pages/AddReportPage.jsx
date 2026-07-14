@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { CircleMarker, MapContainer, TileLayer, useMap, useMapEvents } from 'react-leaflet'
 import { createReport } from '../api/reports'
 import { listDistricts } from '../api/districts'
-import { CATEGORIES, ROLES, URGENCY } from '../constants'
+import { CATEGORIES, KEGIATAN, ROLES, URGENCY } from '../constants'
 
 const WAMENA_CENTER = [-4.0917, 138.95]
 
@@ -13,6 +13,7 @@ const emptyForm = {
   distrik: '',
   category: CATEGORIES[0],
   urgency: URGENCY[0],
+  kegiatan: KEGIATAN[0],
   title: '',
   description: '',
   source: '',
@@ -229,6 +230,20 @@ export default function AddReportPage() {
               {URGENCY.map((u) => (
                 <option key={u} value={u}>
                   {u}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label="Kegiatan">
+            <select
+              value={form.kegiatan}
+              onChange={(e) => update('kegiatan', e.target.value)}
+              className="input"
+            >
+              {KEGIATAN.map((k) => (
+                <option key={k} value={k}>
+                  {k}
                 </option>
               ))}
             </select>

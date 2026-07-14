@@ -1,7 +1,8 @@
 from datetime import datetime, timezone
 
 from sqlalchemy import (
-    Column, Integer, Float, String, Text, DateTime, ForeignKey, UniqueConstraint,
+    Boolean, Column, Integer, Float, JSON, String, Text, DateTime, ForeignKey,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 
@@ -28,6 +29,17 @@ STATUS = ["Baru", "Dipantau", "Ditindaklanjuti", "Selesai"]
 ROLES = ["Pegawai Organik", "Mitra", "Admin"]
 JENIS_AKSES = ["darat_baik", "darat_sulit", "udara"]
 NEWS_KATEGORI = ["Keamanan", "Bencana", "Cuaca", "Umum"]
+KONDISI_JALAN = ["baik", "rusak ringan", "rusak sedang", "rusak berat"]
+KEGIATAN = [
+    "Sensus Ekonomi", "Susenas Maret", "Susenas Agustus", "Sakernas Februari",
+    "Sakernas Mei", "Sakernas Agustus", "Sakernas November", "PODES (Potensi Desa)",
+    "Seruti Triwulan 1", "Seruti Triwulan 2", "Seruti Triwulan 3", "Seruti Triwulan 4",
+    "VHTS", "SHK (Survei Harga Konsumen)", "Desa Cantik", "IMK Tahunan",
+    "IMK Triwulanan", "Statpolkam", "KSA", "LPTB", "SKTH", "SKTR", "STPIM",
+    "Captive Power", "FIP HORTI", "SKGB", "SKP", "DPA", "DPPD UTL", "SKLNPT",
+    "SKTNP", "SKSPPI", "SKNP", "SHKK", "SHPB", "SHP", "SHPJ", "SVPEB", "SHPED",
+    "V3", "VPACK", "VRES", "VHTL", "VDTW", "Transportasi Udara", "KSP", "SBH", "NTP",
+]
 
 
 class District(Base):
@@ -49,6 +61,12 @@ class District(Base):
     jenis_akses = Column(String, default="darat_baik")        # see JENIS_AKSES
     keterangan_akses = Column(String, default="")
 
+    # Direct-edit by ketua_tim/kepala_bps only (NOT via DistrictEditProposal) — an
+    # observational field (current road condition), not a ground-truth reference
+    # correction, so it doesn't need the propose/approve audit trail. NULL = not yet
+    # assessed, see KONDISI_JALAN.
+    kondisi_jalan = Column(String, nullable=True)
+
     weather = relationship(
         "WeatherSnapshot", back_populates="district",
         uselist=False, cascade="all, delete-orphan",
@@ -65,6 +83,7 @@ class Report(Base):
     distrik = Column(String, nullable=False, index=True)
     category = Column(String, nullable=False, index=True)     # see CATEGORIES
     urgency = Column(String, nullable=False, index=True)       # see URGENCY
+    kegiatan = Column(String, nullable=False, index=True)      # see KEGIATAN
     title = Column(String, nullable=False)
     description = Column(Text, default="")
     source = Column(String, default="")
@@ -140,3 +159,24 @@ class WeatherSnapshot(Base):
     updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
 
     district = relationship("District", back_populates="weather")
+
+
+class DistrictRoute(Base):
+    """Rute — AUTO/cached. One route lookup per distrik, cached by
+    crud.get_or_fetch_district_route() after the first ORS call so a district's road
+    network isn't re-queried on every page view. `available=False, reason="udara"` for
+    air-access districts (never queried), `reason="no_reliable_road_data"` when ORS's
+    route lands >2km from the district's real coordinates (see SNAP_DISTANCE_THRESHOLD_KM
+    in crud.py) — both are durable verdicts and get cached. A transient provider error
+    is NOT cached here (retried on the next request instead)."""
+    __tablename__ = "district_routes"
+
+    distrik_id = Column(Integer, ForeignKey("districts.id"), primary_key=True)
+    available = Column(Boolean, nullable=False)
+    reason = Column(String, nullable=True)       # "udara" | "no_reliable_road_data" | None
+    geometry = Column(JSON, nullable=True)        # [[lat, lng], ...]
+    distance_km = Column(Float, nullable=True)
+    duration_min = Column(Float, nullable=True)
+    checked_at = Column(DateTime, default=_utcnow)
+
+    district = relationship("District")

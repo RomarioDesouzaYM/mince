@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { listDistricts } from '../api/districts'
-import { CATEGORIES, ROLES, STATUS, URGENCY } from '../constants'
+import { CATEGORIES, KEGIATAN, ROLES, STATUS, URGENCY } from '../constants'
 
 const FIELDS = [
   { key: 'kabupaten', label: 'Kabupaten' },
@@ -8,6 +8,7 @@ const FIELDS = [
   { key: 'status', label: 'Status' },
   { key: 'urgency', label: 'Urgensi' },
   { key: 'submitted_by_role', label: 'Peran Pengirim' },
+  { key: 'kegiatan', label: 'Kegiatan' },
 ]
 
 export default function ReportFilters({ filters, onChange, className = '' }) {
@@ -30,6 +31,7 @@ export default function ReportFilters({ filters, onChange, className = '' }) {
     status: STATUS,
     urgency: URGENCY,
     submitted_by_role: ROLES,
+    kegiatan: KEGIATAN,
   }
 
   function update(field, value) {

@@ -34,6 +34,7 @@ const emptyFilters = {
   status: '',
   urgency: '',
   submitted_by_role: '',
+  kegiatan: '',
 }
 
 function FitBounds({ districts }) {
@@ -95,10 +96,10 @@ export default function PetaPage() {
   }, [])
 
   useEffect(() => {
-    listDistrictRisk()
+    listDistrictRisk(filters)
       .then(setRisk)
       .catch(() => {})
-  }, [])
+  }, [filters])
 
   const riskByDistrict = useMemo(() => {
     const map = {}

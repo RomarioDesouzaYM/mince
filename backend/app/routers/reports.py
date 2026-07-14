@@ -18,6 +18,7 @@ def list_reports(
     urgency: Optional[str] = None,
     status: Optional[str] = None,
     submitted_by_role: Optional[str] = None,
+    kegiatan: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
     return crud.list_reports(
@@ -28,6 +29,7 @@ def list_reports(
         urgency=urgency,
         status=status,
         submitted_by_role=submitted_by_role,
+        kegiatan=kegiatan,
     )
 
 
