@@ -12,7 +12,7 @@ export default function SampelTargetPage() {
   const canEditRealisasi = APPROVER_ROLES.includes(getRole())
   const canImportCsv = WRITE_ROLES.includes(getRole())
 
-  const [kegiatan, setKegiatan] = useState(KEGIATAN[0])
+  const [kegiatan, setKegiatan] = useState(null)
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -32,6 +32,7 @@ export default function SampelTargetPage() {
   const [savingTarget, setSavingTarget] = useState(false)
 
   function loadSummary() {
+    if (!kegiatan) return
     setLoading(true)
     setError('')
     getSampelSummary(kegiatan)
@@ -44,12 +45,14 @@ export default function SampelTargetPage() {
 
   // Default to whatever kegiatan was actually imported most recently, not just the
   // first entry in the static KEGIATAN list (which may have zero imported data).
+  // kegiatan starts null so loadSummary skips its first render entirely instead of
+  // firing once against the wrong default and again once this resolves.
   useEffect(() => {
     getLatestKegiatan()
       .then(({ kegiatan: latest }) => {
-        if (latest) setKegiatan(latest)
+        setKegiatan(latest || KEGIATAN[0])
       })
-      .catch(() => {})
+      .catch(() => setKegiatan(KEGIATAN[0]))
   }, [])
 
   async function handleImport(e) {
