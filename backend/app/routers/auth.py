@@ -32,6 +32,17 @@ ROLE_ACCOUNTS = [
     ("kepala_bps", "KEPALA_BPS_USER", "KEPALA_BPS_PASSWORD"),
 ]
 
+# Read-only guest access: one shared passcode, no real username/password pair, so it
+# doesn't fit the ROLE_ACCOUNTS tuple shape above -- matched separately below instead
+# of forcing a fake per-guest username env var. GUEST_USERNAME is a fixed internal
+# literal (not a secret) the frontend supplies silently in guest-mode login.
+GUEST_USERNAME = "tamu"
+
+# The non-guest roles -- every write endpoint gates on this explicitly rather than
+# plain require_auth, so a future role addition (like guest was) can't silently gain
+# write access by default.
+WRITE_ROLES = ("operator", "ketua_tim", "kepala_bps")
+
 
 class LoginRequest(BaseModel):
     username: str
@@ -47,6 +58,8 @@ def _match_role(username: str, password: str):
     for role, user_var, pass_var in ROLE_ACCOUNTS:
         if username == os.getenv(user_var) and password == os.getenv(pass_var):
             return role
+    if username == GUEST_USERNAME and password == os.getenv("GUEST_PASSCODE"):
+        return "guest"
     return None
 
 

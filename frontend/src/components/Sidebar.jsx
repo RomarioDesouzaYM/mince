@@ -6,6 +6,7 @@ const links = [
   { to: '/dashboard', label: 'Dashboard' },
   { to: '/laporan', label: 'Laporan' },
   { to: '/risiko', label: 'Risiko' },
+  { to: '/sampel', label: 'Target Sampel' },
   { to: '/berita', label: 'Berita' },
   { to: '/ringkasan', label: 'Ringkasan' },
 ]
@@ -14,10 +15,14 @@ const APPROVER_ROLES = ['ketua_tim', 'kepala_bps']
 
 export default function Sidebar() {
   const navigate = useNavigate()
-  const isApprover = APPROVER_ROLES.includes(getRole())
-  const visibleLinks = isApprover
-    ? [...links, { to: '/persetujuan', label: 'Persetujuan' }]
-    : links
+  const role = getRole()
+  const isApprover = APPROVER_ROLES.includes(role)
+  const isGuest = role === 'guest'
+  const visibleLinks = isGuest
+    ? links.filter((link) => link.to !== '/laporan')
+    : isApprover
+      ? [...links, { to: '/persetujuan', label: 'Persetujuan' }]
+      : links
 
   function handleLogout() {
     logout()

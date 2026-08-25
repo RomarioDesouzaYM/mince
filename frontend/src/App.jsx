@@ -12,6 +12,9 @@ import DistrictRoutePage from './pages/DistrictRoutePage'
 import ApprovalQueuePage from './pages/ApprovalQueuePage'
 import RisikoPage from './pages/RisikoPage'
 import RingkasanPage from './pages/RingkasanPage'
+import SampelTargetPage from './pages/SampelTargetPage'
+
+const WRITE_ROLES = ['operator', 'ketua_tim', 'kepala_bps']
 
 export default function App() {
   return (
@@ -23,13 +26,19 @@ export default function App() {
           <Route element={<Layout />}>
             <Route path="/peta" element={<PetaPage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/laporan" element={<ReportsPage />} />
-            <Route path="/laporan/tambah" element={<AddReportPage />} />
             <Route path="/berita" element={<BeritaPage />} />
-            <Route path="/distrik/:id/ajukan" element={<ProposeDistrictEditPage />} />
-            <Route path="/distrik/:id/rute" element={<DistrictRoutePage />} />
             <Route path="/risiko" element={<RisikoPage />} />
             <Route path="/ringkasan" element={<RingkasanPage />} />
+            <Route path="/sampel" element={<SampelTargetPage />} />
+          </Route>
+        </Route>
+
+        <Route element={<ProtectedRoute roles={WRITE_ROLES} />}>
+          <Route element={<Layout />}>
+            <Route path="/laporan" element={<ReportsPage />} />
+            <Route path="/laporan/tambah" element={<AddReportPage />} />
+            <Route path="/distrik/:id/ajukan" element={<ProposeDistrictEditPage />} />
+            <Route path="/distrik/:id/rute" element={<DistrictRoutePage />} />
           </Route>
         </Route>
 

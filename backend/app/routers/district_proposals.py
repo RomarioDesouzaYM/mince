@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app import crud, schemas
 from app.database import get_db
-from app.routers.auth import require_auth, require_role
+from app.routers.auth import WRITE_ROLES, require_auth, require_role
 
 router = APIRouter(prefix="/districts", tags=["district-proposals"])
 
@@ -13,7 +13,7 @@ router = APIRouter(prefix="/districts", tags=["district-proposals"])
 @router.post(
     "/{district_id}/proposals",
     response_model=schemas.DistrictEditProposalOut,
-    dependencies=[Depends(require_auth)],
+    dependencies=[Depends(require_role(*WRITE_ROLES))],
 )
 def create_proposal(
     district_id: int,

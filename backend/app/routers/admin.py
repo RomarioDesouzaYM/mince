@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends
 
-from app.routers.auth import require_auth
+from app.routers.auth import WRITE_ROLES, require_role
 from app.scheduler import ingest_news, ingest_weather
 
-router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_auth)])
+router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_role(*WRITE_ROLES))])
 
 
 @router.post("/ingest")

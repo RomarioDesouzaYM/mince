@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app import crud, schemas
 from app.database import get_db
-from app.routers.auth import require_auth
+from app.routers.auth import WRITE_ROLES, require_auth, require_role
 
 router = APIRouter(prefix="/reports", tags=["reports"], dependencies=[Depends(require_auth)])
 
@@ -33,7 +33,10 @@ def list_reports(
     )
 
 
-@router.post("", response_model=schemas.ReportOut, status_code=201)
+@router.post(
+    "", response_model=schemas.ReportOut, status_code=201,
+    dependencies=[Depends(require_role(*WRITE_ROLES))],
+)
 def create_report(report_in: schemas.ReportCreate, db: Session = Depends(get_db)):
     return crud.create_report(db, report_in)
 
@@ -46,7 +49,10 @@ def get_report(report_id: int, db: Session = Depends(get_db)):
     return report
 
 
-@router.put("/{report_id}", response_model=schemas.ReportOut)
+@router.put(
+    "/{report_id}", response_model=schemas.ReportOut,
+    dependencies=[Depends(require_role(*WRITE_ROLES))],
+)
 def update_report(report_id: int, report_in: schemas.ReportUpdate, db: Session = Depends(get_db)):
     report = crud.update_report(db, report_id, report_in)
     if report is None:
@@ -54,7 +60,10 @@ def update_report(report_id: int, report_in: schemas.ReportUpdate, db: Session =
     return report
 
 
-@router.delete("/{report_id}", status_code=204)
+@router.delete(
+    "/{report_id}", status_code=204,
+    dependencies=[Depends(require_role(*WRITE_ROLES))],
+)
 def delete_report(report_id: int, db: Session = Depends(get_db)):
     if not crud.delete_report(db, report_id):
         raise HTTPException(status_code=404, detail="Laporan tidak ditemukan")

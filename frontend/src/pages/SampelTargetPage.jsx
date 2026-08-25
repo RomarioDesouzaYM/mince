@@ -6,9 +6,11 @@ import {
 import { KEGIATAN } from '../constants'
 
 const APPROVER_ROLES = ['ketua_tim', 'kepala_bps']
+const WRITE_ROLES = ['operator', 'ketua_tim', 'kepala_bps']
 
 export default function SampelTargetPage() {
   const canEditRealisasi = APPROVER_ROLES.includes(getRole())
+  const canImportCsv = WRITE_ROLES.includes(getRole())
 
   const [kegiatan, setKegiatan] = useState(KEGIATAN[0])
   const [rows, setRows] = useState([])
@@ -140,47 +142,49 @@ export default function SampelTargetPage() {
         )}
       </div>
 
-      <form onSubmit={handleImport} className="mb-6 rounded-lg border border-gray-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-gray-900">Impor Sampel Target (CSV Fasih)</h2>
-        <div className="flex flex-wrap items-center gap-3">
-          <input
-            type="file"
-            accept=".csv"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            className="text-sm"
-          />
-          <button
-            type="submit"
-            disabled={!file || importing}
-            className="rounded bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-          >
-            {importing ? 'Mengimpor...' : `Impor untuk "${kegiatan}"`}
-          </button>
-        </div>
-
-        {importError && <p className="mt-3 text-sm text-red-600">{importError}</p>}
-
-        {importSummary && (
-          <div className="mt-4 text-sm text-gray-700">
-            <p>
-              {importSummary.imported} dari {importSummary.rows_total} baris berhasil diimpor
-              ({importSummary.skipped} dilewati).
-            </p>
-            {Object.keys(importSummary.skipped_reasons).length > 0 && (
-              <ul className="mt-2 list-disc pl-5 text-xs text-gray-500">
-                {Object.entries(importSummary.skipped_reasons).map(([reason, count]) => (
-                  <li key={reason}>{reason}: {count}</li>
-                ))}
-              </ul>
-            )}
-            {importSummary.unmatched_distrik.length > 0 && (
-              <p className="mt-2 text-xs text-orange-700">
-                Distrik tidak dikenal (tidak diimpor): {importSummary.unmatched_distrik.join(', ')}
-              </p>
-            )}
+      {canImportCsv && (
+        <form onSubmit={handleImport} className="mb-6 rounded-lg border border-gray-200 bg-white p-4">
+          <h2 className="mb-3 text-sm font-semibold text-gray-900">Impor Sampel Target (CSV Fasih)</h2>
+          <div className="flex flex-wrap items-center gap-3">
+            <input
+              type="file"
+              accept=".csv"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              className="text-sm"
+            />
+            <button
+              type="submit"
+              disabled={!file || importing}
+              className="rounded bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            >
+              {importing ? 'Mengimpor...' : `Impor untuk "${kegiatan}"`}
+            </button>
           </div>
-        )}
-      </form>
+
+          {importError && <p className="mt-3 text-sm text-red-600">{importError}</p>}
+
+          {importSummary && (
+            <div className="mt-4 text-sm text-gray-700">
+              <p>
+                {importSummary.imported} dari {importSummary.rows_total} baris berhasil diimpor
+                ({importSummary.skipped} dilewati).
+              </p>
+              {Object.keys(importSummary.skipped_reasons).length > 0 && (
+                <ul className="mt-2 list-disc pl-5 text-xs text-gray-500">
+                  {Object.entries(importSummary.skipped_reasons).map(([reason, count]) => (
+                    <li key={reason}>{reason}: {count}</li>
+                  ))}
+                </ul>
+              )}
+              {importSummary.unmatched_distrik.length > 0 && (
+                <p className="mt-2 text-xs text-orange-700">
+                  Distrik tidak dikenal (tidak diimpor): {importSummary.unmatched_distrik.join(', ')}
+                </p>
+              )}
+            </div>
+          )}
+        </form>
+      )}
 
       {showTargetForm && (
         <form onSubmit={handleTargetOverride} className="mb-6 rounded-lg border border-gray-200 bg-white p-4">

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app import crud, schemas
 from app.database import get_db
 from app.models import KEGIATAN
-from app.routers.auth import require_auth, require_role
+from app.routers.auth import WRITE_ROLES, require_auth, require_role
 
 router = APIRouter(prefix="/sampel-target", tags=["sampel-target"], dependencies=[Depends(require_auth)])
 
@@ -14,7 +14,10 @@ def get_latest_kegiatan(db: Session = Depends(get_db)):
     return schemas.LatestKegiatanOut(kegiatan=crud.get_latest_imported_kegiatan(db))
 
 
-@router.post("/import", response_model=schemas.SampelImportSummaryOut)
+@router.post(
+    "/import", response_model=schemas.SampelImportSummaryOut,
+    dependencies=[Depends(require_role(*WRITE_ROLES))],
+)
 async def import_sampel_target(
     file: UploadFile = File(...),
     kegiatan: str = Form(...),
