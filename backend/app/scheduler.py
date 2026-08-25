@@ -58,7 +58,8 @@ def _fetch_feed(url: str):
 # keyword -> kategori (checked in this order; first hit wins, else "Umum")
 KATEGORI_KEYWORDS = {
     "Keamanan": ["keamanan", "kkb", "tni", "polri", "konflik", "aparat", "penembakan"],
-    "Bencana":  ["banjir", "longsor", "gempa", "bencana", "erupsi", "cuaca ekstrem", "tanah longsor"],
+    "Bencana":  ["banjir", "longsor", "gempa", "bencana", "erupsi", "cuaca ekstrem", "tanah longsor",
+                 "kebakaran", "karhutla"],
     "Cuaca":    ["cuaca", "hujan", "bmkg", "angin", "kabut"],
 }
 
@@ -178,7 +179,7 @@ def ingest_weather() -> int:
                         "longitude": d.longitude,
                         "current": "temperature_2m,weather_code",
                         "daily": "temperature_2m_max,temperature_2m_min,"
-                                 "weather_code,precipitation_probability_max",
+                                 "weather_code,precipitation_probability_max,precipitation_sum",
                         "forecast_days": 2,
                         "timezone": "Asia/Jayapura",
                     },
@@ -202,6 +203,7 @@ def ingest_weather() -> int:
             snap.besok_kondisi = WEATHER_CODE_ID.get(
                 (daily.get("weather_code") or [None, None])[1], "Tidak diketahui")
             snap.peluang_hujan = (daily.get("precipitation_probability_max") or [None, None])[1]
+            snap.curah_hujan = (daily.get("precipitation_sum") or [None, None])[1]
             snap.updated_at = datetime.now(timezone.utc)
             db.merge(snap)
             updated += 1

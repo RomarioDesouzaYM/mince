@@ -21,3 +21,7 @@ frontend/vite_err.log
 .idea/
 .DS_Store
 Thumbs.db
+
+# Local-only, not app code / contains real PII
+backend/sample_imports/
+bukti_dukung/

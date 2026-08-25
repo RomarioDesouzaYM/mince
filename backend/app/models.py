@@ -156,9 +156,62 @@ class WeatherSnapshot(Base):
     besok_max = Column(Float, nullable=True)
     besok_kondisi = Column(String, nullable=True)
     peluang_hujan = Column(Integer, nullable=True)
+    curah_hujan = Column(Float, nullable=True)  # mm, besok -- Open-Meteo precipitation_sum
     updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
 
     district = relationship("District", back_populates="weather")
+
+
+class SampelTarget(Base):
+    """Fasih sample-target export row — MANUAL (imported from a CSV upload), one row
+    per individual sample target. kode_sampel is synthesized at import time since the
+    source fullCode repeats across multiple targets in the same segment (see
+    routers/sampel.py)."""
+    __tablename__ = "sampel_targets"
+
+    id = Column(Integer, primary_key=True, index=True)
+    kegiatan = Column(String, nullable=False, index=True)
+    kabupaten = Column(String, nullable=False, index=True)
+    distrik = Column(String, nullable=False, index=True)
+    kode_sampel = Column(String, nullable=False, unique=True, index=True)
+    petugas_email = Column(String, nullable=False)
+    alamat = Column(String, nullable=True)  # NULL when Fasih hasn't captured it yet
+    created_at = Column(DateTime, default=_utcnow)
+
+
+class RealisasiTarget(Base):
+    """Manual realisasi count per (kegiatan, kabupaten, distrik) — entered by ketua tim,
+    NOT derived from SampelTarget rows. Upserted the same way WeatherSnapshot is."""
+    __tablename__ = "realisasi_targets"
+    __table_args__ = (
+        UniqueConstraint("kegiatan", "kabupaten", "distrik", name="uq_realisasi_scope"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    kegiatan = Column(String, nullable=False, index=True)
+    kabupaten = Column(String, nullable=False, index=True)
+    distrik = Column(String, nullable=False, index=True)
+    jumlah_realisasi = Column(Integer, nullable=False, default=0)
+    updated_by = Column(String, nullable=True)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+
+
+class TargetOverride(Base):
+    """Manual target override per (kegiatan, kabupaten, distrik) -- ketua tim's typed
+    number, distinct from the SampelTarget CSV-import row count. When present it wins
+    over the CSV count entirely (never merged); upserted the same way RealisasiTarget is."""
+    __tablename__ = "target_overrides"
+    __table_args__ = (
+        UniqueConstraint("kegiatan", "kabupaten", "distrik", name="uq_target_override_scope"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    kegiatan = Column(String, nullable=False, index=True)
+    kabupaten = Column(String, nullable=False, index=True)
+    distrik = Column(String, nullable=False, index=True)
+    jumlah_target = Column(Integer, nullable=False, default=0)
+    updated_by = Column(String, nullable=True)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
 
 
 class DistrictRoute(Base):

@@ -1,7 +1,11 @@
-from datetime import datetime, timezone
+from collections import Counter
+import csv
+from datetime import datetime, timedelta, timezone
+import io
 import logging
 import math
 import os
+import re
 from typing import Optional
 
 import httpx
@@ -447,3 +451,340 @@ def list_news(
     if kabupaten:
         query = query.filter(models.News.kabupaten_terkait == kabupaten)
     return query.order_by(models.News.created_at.desc()).all()
+
+
+# --- Sample-target import (MANUAL, uploaded from a Fasih CSV export) ---------
+
+KABUPATEN_PREFIXES = {
+    "9702": "Jayawijaya",
+    "9705": "Mamberamo Tengah",
+    "9706": "Yalimo",
+}
+_DISTRIK_NAME_RE = re.compile(r"^\[\d+\]\s*(.+)$")
+_DUMMY = "DUMMY"
+
+
+def _parse_sampel_row(row: dict, district_lookup: dict[tuple[str, str], models.District]):
+    """Returns (SampelTarget field dict, None) on success, or (None, skip_reason)."""
+    full_code = (row.get("fullCode") or "").strip()
+    kabupaten = KABUPATEN_PREFIXES.get(full_code[:4])
+    if kabupaten is None:
+        return None, f"kode kabupaten tidak dikenal: {full_code[:4] or full_code}"
+
+    raw_name = (row.get("name") or "").strip()
+    m = _DISTRIK_NAME_RE.match(raw_name)
+    distrik_raw = (m.group(1) if m else raw_name).strip()
+    district = district_lookup.get((kabupaten, distrik_raw.upper()))
+    if district is None:
+        return None, f"__unmatched_distrik__:{raw_name}"
+
+    data5 = (row.get("data5") or "").strip()
+    data2 = (row.get("data2") or "").strip()
+    parts = [p for p in (data5, data2) if p and p != _DUMMY]
+    alamat = ", ".join(parts) if parts else None
+
+    return {
+        "kabupaten": kabupaten,
+        "distrik": district.distrik,
+        "petugas_email": (row.get("currentUserUsername") or "").strip(),
+        "alamat": alamat,
+        "_full_code": full_code,
+    }, None
+
+
+def get_latest_imported_kegiatan(db: Session) -> Optional[str]:
+    """Kegiatan of the most recently imported SampelTarget row, for defaulting the
+    frontend's kegiatan selector to data that actually exists instead of the first
+    entry in the static KEGIATAN list."""
+    row = (
+        db.query(models.SampelTarget.kegiatan)
+        .order_by(models.SampelTarget.created_at.desc())
+        .first()
+    )
+    return row[0] if row else None
+
+
+def import_sampel_target(db: Session, csv_bytes: bytes, kegiatan: str) -> schemas.SampelImportSummaryOut:
+    districts = list_districts(db)
+    district_lookup = {(d.kabupaten, d.distrik.upper()): d for d in districts}
+
+    reader = csv.DictReader(io.StringIO(csv_bytes.decode("utf-8-sig")))
+    rows_total = 0
+    imported = 0
+    skipped_reasons: Counter = Counter()
+    unmatched_distrik: set[str] = set()
+    occurrence: Counter = Counter()
+
+    for row in reader:
+        rows_total += 1
+        parsed, reason = _parse_sampel_row(row, district_lookup)
+        if reason is not None:
+            if reason.startswith("__unmatched_distrik__:"):
+                unmatched_distrik.add(reason.split(":", 1)[1])
+                skipped_reasons["distrik tidak dikenal"] += 1
+            else:
+                skipped_reasons[reason] += 1
+            continue
+
+        full_code = parsed.pop("_full_code")
+        occurrence[full_code] += 1
+        kode_sampel = f"{full_code}-{occurrence[full_code]:02d}"
+
+        if db.query(models.SampelTarget).filter(
+            models.SampelTarget.kode_sampel == kode_sampel
+        ).first() is not None:
+            skipped_reasons[f"kode_sampel sudah ada: {kode_sampel}"] += 1
+            continue
+
+        db.add(models.SampelTarget(kegiatan=kegiatan, kode_sampel=kode_sampel, **parsed))
+        imported += 1
+
+    db.commit()
+
+    return schemas.SampelImportSummaryOut(
+        kegiatan=kegiatan,
+        rows_total=rows_total,
+        imported=imported,
+        skipped=rows_total - imported,
+        skipped_reasons=dict(skipped_reasons),
+        unmatched_distrik=sorted(unmatched_distrik),
+    )
+
+
+# --- Realisasi (MANUAL, ketua tim, independent of SampelTarget rows) ---------
+
+def upsert_realisasi(
+    db: Session, realisasi_in: schemas.RealisasiUpdate, updated_by: str,
+) -> models.RealisasiTarget:
+    realisasi = (
+        db.query(models.RealisasiTarget)
+        .filter(
+            models.RealisasiTarget.kegiatan == realisasi_in.kegiatan,
+            models.RealisasiTarget.kabupaten == realisasi_in.kabupaten,
+            models.RealisasiTarget.distrik == realisasi_in.distrik,
+        )
+        .first()
+    )
+    if realisasi is None:
+        realisasi = models.RealisasiTarget(
+            kegiatan=realisasi_in.kegiatan,
+            kabupaten=realisasi_in.kabupaten,
+            distrik=realisasi_in.distrik,
+        )
+        db.add(realisasi)
+    realisasi.jumlah_realisasi = realisasi_in.jumlah_realisasi
+    realisasi.updated_by = updated_by
+    db.commit()
+    db.refresh(realisasi)
+    return realisasi
+
+
+def upsert_target_override(
+    db: Session, override_in: schemas.TargetOverrideUpdate, updated_by: str,
+) -> models.TargetOverride:
+    override = (
+        db.query(models.TargetOverride)
+        .filter(
+            models.TargetOverride.kegiatan == override_in.kegiatan,
+            models.TargetOverride.kabupaten == override_in.kabupaten,
+            models.TargetOverride.distrik == override_in.distrik,
+        )
+        .first()
+    )
+    if override is None:
+        override = models.TargetOverride(
+            kegiatan=override_in.kegiatan,
+            kabupaten=override_in.kabupaten,
+            distrik=override_in.distrik,
+        )
+        db.add(override)
+    override.jumlah_target = override_in.jumlah_target
+    override.updated_by = updated_by
+    db.commit()
+    db.refresh(override)
+    return override
+
+
+# --- Target vs realisasi summary, with a PROVISIONAL delay flag --------------
+# Placeholder thresholds pending confirmation against real distrik behavior.
+# Reuses News/WeatherSnapshot/District data but is a separate computation from
+# status_perhatian and must never feed into it (weather/travel time stay
+# context-only per the roadmap).
+DELAY_KEAMANAN_WINDOW_DAYS = 7
+DELAY_KONDISI_JALAN_BURUK = {"rusak sedang", "rusak berat"}
+DELAY_CURAH_HUJAN_THRESHOLD_MM = 8
+
+AID_VERB_PATTERN = re.compile(
+    r"\b(?:bantu|membantu|menyumbang|salurkan bantuan|kirim bantuan|peduli)\b",
+    re.IGNORECASE,
+)
+AID_SOURCE_PROXIMITY_CHARS = 60
+
+
+def _is_aid_source_only_mention(text: str, place_name: str) -> bool:
+    """True if EVERY occurrence of `place_name` in `text` sits within
+    AID_SOURCE_PROXIMITY_CHARS of an aid-giving verb -- suggesting the place is the
+    SOURCE of aid, not the site of the event (e.g. "Umat Muslim Jayawijaya bantu
+    korban gempa NTT": Jayawijaya is where the helpers are from, NTT is where the
+    earthquake was). False (don't suppress) if the name isn't in the text at all, or
+    if at least one occurrence has no aid verb nearby -- e.g. "Banjir landa
+    Jayawijaya, warga butuh bantuan" would NOT be suppressed, since "Jayawijaya"
+    there isn't adjacent to a giving-verb, it's the affected site.
+
+    Keyword-proximity, not sentence parsing -- catches "[place] [aid verb] [someone
+    elsewhere]" landing within the window, nothing structurally deeper (a longer
+    sentence, or a giving-verb outside this fixed list, won't be caught)."""
+    spans = [
+        m.span() for m in re.compile(rf"\b{re.escape(place_name)}\b", re.IGNORECASE).finditer(text)
+    ]
+    if not spans:
+        return False
+    verb_spans = [m.span() for m in AID_VERB_PATTERN.finditer(text)]
+    if not verb_spans:
+        return False
+    return all(
+        any(max(p_start - v_end, v_start - p_end, 0) <= AID_SOURCE_PROXIMITY_CHARS
+            for v_start, v_end in verb_spans)
+        for p_start, p_end in spans
+    )
+
+
+def _news_matches_by_district(
+    db: Session, districts: list[models.District], kategori_set: set[str], window_days: int,
+) -> dict[tuple[str, str], list[models.News]]:
+    """Maps (kabupaten, distrik) -> matched News rows whose kategori is in
+    `kategori_set`, from the last `window_days` days. Distrik-name
+    match wins first (a news item naming a specific distrik only flags that distrik).
+    An item naming no specific distrik falls back to kabupaten_terkait, so it still
+    counts toward every distrik in that kabupaten. An item with neither a named
+    distrik nor a kabupaten_terkait tag is NOT attributed to anyone -- untagged items
+    are frequently about unrelated regencies (Timika, Nabire, etc.), so treating
+    "no tag" as "matches every kabupaten" was the bug this replaces. A distrik or
+    kabupaten mention that's purely an aid-giving source (see
+    _is_aid_source_only_mention) is excluded too -- and does NOT fall through to the
+    kabupaten-level fallback, since that would just widen a suppressed false
+    attribution instead of removing it."""
+    name_pattern = {
+        d.distrik: re.compile(rf"\b{re.escape(d.distrik)}\b", re.IGNORECASE)
+        for d in districts
+    }
+    by_kabupaten: dict[str, list[models.District]] = {}
+    for d in districts:
+        by_kabupaten.setdefault(d.kabupaten, []).append(d)
+
+    since = datetime.now(timezone.utc) - timedelta(days=window_days)
+    recent = (
+        db.query(models.News)
+        .filter(models.News.kategori.in_(kategori_set), models.News.created_at >= since)
+        .all()
+    )
+
+    matches: dict[tuple[str, str], list[models.News]] = {}
+    for n in recent:
+        text = f"{n.judul} {n.ringkasan}"
+        raw_matched = [d for d in districts if name_pattern[d.distrik].search(text)]
+        if raw_matched:
+            matched = [d for d in raw_matched if not _is_aid_source_only_mention(text, d.distrik)]
+            for d in matched:
+                matches.setdefault((d.kabupaten, d.distrik), []).append(n)
+        elif n.kabupaten_terkait and not _is_aid_source_only_mention(text, n.kabupaten_terkait):
+            for d in by_kabupaten.get(n.kabupaten_terkait, []):
+                matches.setdefault((d.kabupaten, d.distrik), []).append(n)
+    return matches
+
+
+def _jaringan_delay_reasons_by_district(
+    db: Session, districts: list[models.District],
+) -> dict[tuple[str, str], list[str]]:
+    """Maps (kabupaten, distrik) -> titles of unresolved Jaringan Komunikasi reports
+    from the last DELAY_KEAMANAN_WINDOW_DAYS days. Unlike News, Report carries an
+    explicit non-nullable distrik column, so this is a direct lookup -- no
+    name-matching or kabupaten-level fallback is needed here."""
+    since = datetime.now(timezone.utc) - timedelta(days=DELAY_KEAMANAN_WINDOW_DAYS)
+    recent_jaringan = (
+        db.query(models.Report)
+        .filter(
+            models.Report.category == JARINGAN_CATEGORY,
+            models.Report.created_at >= since,
+            models.Report.status != "Selesai",
+        )
+        .all()
+    )
+    reasons: dict[tuple[str, str], list[str]] = {}
+    for r in recent_jaringan:
+        reasons.setdefault((r.kabupaten, r.distrik), []).append(
+            r.title or "Laporan gangguan jaringan belum selesai"
+        )
+    return reasons
+
+
+def get_sampel_summary(db: Session, kegiatan: str) -> list[schemas.SampelSummaryRowOut]:
+    districts = list_districts(db)
+
+    target_counts = {
+        (kab, dist): n
+        for kab, dist, n in (
+            db.query(models.SampelTarget.kabupaten, models.SampelTarget.distrik, func.count())
+            .filter(models.SampelTarget.kegiatan == kegiatan)
+            .group_by(models.SampelTarget.kabupaten, models.SampelTarget.distrik)
+            .all()
+        )
+    }
+    realisasi_rows = (
+        db.query(models.RealisasiTarget)
+        .filter(models.RealisasiTarget.kegiatan == kegiatan)
+        .all()
+    )
+    realisasi_by_key = {(r.kabupaten, r.distrik): r.jumlah_realisasi for r in realisasi_rows}
+    override_by_key = {
+        (r.kabupaten, r.distrik): r.jumlah_target
+        for r in (
+            db.query(models.TargetOverride)
+            .filter(models.TargetOverride.kegiatan == kegiatan)
+            .all()
+        )
+    }
+
+    keamanan_matches = _news_matches_by_district(db, districts, {"Keamanan"}, DELAY_KEAMANAN_WINDOW_DAYS)
+    berita_penting_matches = _news_matches_by_district(
+        db, districts, {"Keamanan", "Bencana"}, DELAY_KEAMANAN_WINDOW_DAYS,
+    )
+    jaringan_reasons = _jaringan_delay_reasons_by_district(db, districts)
+
+    result = []
+    for d in districts:
+        key = (d.kabupaten, d.distrik)
+        csv_target = target_counts.get(key, 0)
+        override = override_by_key.get(key)
+        target = override if override is not None else csv_target
+        target_source = "manual" if override is not None else "csv"
+        realisasi = realisasi_by_key.get(key, 0)
+
+        reasons = [n.judul for n in keamanan_matches.get(key, [])]
+        reasons.extend(jaringan_reasons.get(key, []))
+        if d.kondisi_jalan in DELAY_KONDISI_JALAN_BURUK:
+            reasons.append(f"kondisi_jalan: {d.kondisi_jalan}")
+        curah_hujan = d.weather.curah_hujan if d.weather else None
+        if curah_hujan is not None and curah_hujan >= DELAY_CURAH_HUJAN_THRESHOLD_MM:
+            reasons.append(f"curah hujan tinggi: {curah_hujan}mm")
+
+        berita_penting = [
+            schemas.BeritaPentingItemOut(judul=n.judul, kategori=n.kategori, url=n.url, tanggal=n.tanggal)
+            for n in berita_penting_matches.get(key, [])
+        ]
+
+        result.append(schemas.SampelSummaryRowOut(
+            district_id=d.id,
+            kabupaten=d.kabupaten,
+            distrik=d.distrik,
+            target=target,
+            target_source=target_source,
+            target_csv_count=csv_target,
+            realisasi=realisasi,
+            kondisi_jalan=d.kondisi_jalan,
+            curah_hujan=curah_hujan,
+            delay_flag=bool(reasons),
+            delay_flag_reasons=reasons,
+            berita_penting=berita_penting,
+        ))
+    return result

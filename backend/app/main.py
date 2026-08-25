@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import Base, engine
 from app.routers import (
-    admin, auth, dashboard, district_proposals, districts, news, reports, risk, summary,
+    admin, auth, dashboard, district_proposals, districts, news, reports, risk, sampel, summary,
 )
 from app.scheduler import start_scheduler
 
@@ -40,6 +40,7 @@ app.include_router(dashboard.router)
 app.include_router(news.router)
 app.include_router(admin.router)
 app.include_router(risk.router)
+app.include_router(sampel.router)
 app.include_router(summary.router)
 
 

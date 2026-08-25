@@ -196,3 +196,87 @@ class DailySummaryOut(BaseModel):
     generated_at: datetime
     kabupaten: list[KabupatenSummaryOut]
     berita_terkini: list[NewsOut]
+
+
+class SampelTargetOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    kegiatan: str
+    kabupaten: str
+    distrik: str
+    kode_sampel: str
+    petugas_email: str
+    alamat: Optional[str] = None
+    created_at: datetime
+
+
+class LatestKegiatanOut(BaseModel):
+    kegiatan: Optional[str] = None
+
+
+class SampelImportSummaryOut(BaseModel):
+    kegiatan: str
+    rows_total: int
+    imported: int
+    skipped: int
+    skipped_reasons: dict[str, int]
+    unmatched_distrik: list[str]
+
+
+class RealisasiUpdate(BaseModel):
+    kegiatan: Kegiatan
+    kabupaten: str
+    distrik: str
+    jumlah_realisasi: int
+
+
+class RealisasiOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    kegiatan: str
+    kabupaten: str
+    distrik: str
+    jumlah_realisasi: int
+    updated_by: Optional[str] = None
+    updated_at: datetime
+
+
+class TargetOverrideUpdate(BaseModel):
+    kegiatan: Kegiatan
+    kabupaten: str
+    distrik: str
+    jumlah_target: int
+
+
+class TargetOverrideOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    kegiatan: str
+    kabupaten: str
+    distrik: str
+    jumlah_target: int
+    updated_by: Optional[str] = None
+    updated_at: datetime
+
+
+class BeritaPentingItemOut(BaseModel):
+    judul: str
+    kategori: str
+    url: str
+    tanggal: Optional[str] = None
+
+
+class SampelSummaryRowOut(BaseModel):
+    district_id: int
+    kabupaten: str
+    distrik: str
+    target: int
+    target_source: Literal["manual", "csv"]
+    target_csv_count: int
+    realisasi: int
+    kondisi_jalan: Optional[KondisiJalan] = None
+    curah_hujan: Optional[float] = None
+    delay_flag: bool
+    delay_flag_reasons: list[str]
+    berita_penting: list[BeritaPentingItemOut] = []
