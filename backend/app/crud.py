@@ -613,6 +613,7 @@ def upsert_target_override(
 DELAY_KEAMANAN_WINDOW_DAYS = 7
 DELAY_KONDISI_JALAN_BURUK = {"rusak sedang", "rusak berat"}
 DELAY_CURAH_HUJAN_THRESHOLD_MM = 8
+DELAY_URGENT_URGENCY_LEVELS = {"Sedang", "Tinggi", "Kritis"}
 
 AID_VERB_PATTERN = re.compile(
     r"\b(?:bantu|membantu|menyumbang|salurkan bantuan|kirim bantuan|peduli)\b",
@@ -718,6 +719,42 @@ def _jaringan_delay_reasons_by_district(
     return reasons
 
 
+def _urgent_report_reasons_by_district(
+    db: Session, districts: list[models.District],
+) -> dict[tuple[str, str], list[str]]:
+    """Maps (kabupaten, distrik) -> descriptions of unresolved, urgensi Sedang+
+    reports. Excludes Jaringan Komunikasi -- that category already has its own
+    signal above (_jaringan_delay_reasons_by_district) which flags EVERY unresolved
+    jaringan report regardless of urgency, so including it here could only ever
+    produce a redundant duplicate reason for a report already flagged, never catch
+    anything new.
+
+    Deliberately NO time window, unlike the News-backed checks above: a News
+    article's relevance decays with age, but an open Kritis report doesn't stop
+    being a real problem after 7 days -- if anything a report that's stayed
+    unresolved the longest is exactly the one that most needs surfacing. Relevance
+    here is governed by status, not age, so this persists until the report is
+    actually marked Selesai.
+
+    Same direct-lookup reasoning as jaringan: Report.distrik is non-nullable, so no
+    name-matching or kabupaten-level fallback is needed."""
+    recent_urgent = (
+        db.query(models.Report)
+        .filter(
+            models.Report.category != JARINGAN_CATEGORY,
+            models.Report.urgency.in_(DELAY_URGENT_URGENCY_LEVELS),
+            models.Report.status != "Selesai",
+        )
+        .all()
+    )
+    reasons: dict[tuple[str, str], list[str]] = {}
+    for r in recent_urgent:
+        reasons.setdefault((r.kabupaten, r.distrik), []).append(
+            f"Kemungkinan pendataan terhambat: {r.title} (urgensi {r.urgency})"
+        )
+    return reasons
+
+
 def get_sampel_summary(db: Session, kegiatan: str) -> list[schemas.SampelSummaryRowOut]:
     districts = list_districts(db)
 
@@ -750,6 +787,7 @@ def get_sampel_summary(db: Session, kegiatan: str) -> list[schemas.SampelSummary
         db, districts, {"Keamanan", "Bencana"}, DELAY_KEAMANAN_WINDOW_DAYS,
     )
     jaringan_reasons = _jaringan_delay_reasons_by_district(db, districts)
+    urgent_report_reasons = _urgent_report_reasons_by_district(db, districts)
 
     result = []
     for d in districts:
@@ -762,6 +800,7 @@ def get_sampel_summary(db: Session, kegiatan: str) -> list[schemas.SampelSummary
 
         reasons = [n.judul for n in keamanan_matches.get(key, [])]
         reasons.extend(jaringan_reasons.get(key, []))
+        reasons.extend(urgent_report_reasons.get(key, []))
         if d.kondisi_jalan in DELAY_KONDISI_JALAN_BURUK:
             reasons.append(f"kondisi_jalan: {d.kondisi_jalan}")
         curah_hujan = d.weather.curah_hujan if d.weather else None
