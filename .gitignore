@@ -3,6 +3,7 @@ backend/venv/
 backend/**/__pycache__/
 backend/.env
 backend/mince.db
+backend/uploads/
 backend/uvicorn_out.log
 backend/uvicorn_err.log
 backend/uvicorn.pid

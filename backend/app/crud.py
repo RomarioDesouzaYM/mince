@@ -6,15 +6,23 @@ import logging
 import math
 import os
 import re
+import uuid
 from typing import Optional
 
 import httpx
-from sqlalchemy import func
+from PIL import Image, ImageOps, UnidentifiedImageError
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from app import models, schemas
 
 log = logging.getLogger("mince.crud")
+
+UPLOAD_DIR = os.getenv("UPLOAD_DIR", "./uploads")
+MAX_IMAGE_BYTES = 5 * 1024 * 1024   # 5MB, pre-compression
+MAX_PDF_BYTES = 8 * 1024 * 1024     # 8MB, stored as-is
+IMAGE_MAX_DIMENSION = 1600          # longer edge, px
+IMAGE_JPEG_QUALITY = 82
 
 
 # --- Reports ---------------------------------------------------------------
@@ -79,6 +87,59 @@ def delete_report(db: Session, report_id: int) -> bool:
     db.delete(report)
     db.commit()
     return True
+
+
+# --- Bukti dukung upload (Report.bukti_dukung_file) ---------------------------
+# Content-sniffed, size-capped, randomized-filename save to UPLOAD_DIR. Router-agnostic
+# (raises plain ValueError subclasses so routers/reports.py maps them to the right HTTP
+# status) to match this file's existing convention of never importing fastapi.
+
+class BuktiDukungTooLarge(ValueError):
+    pass
+
+
+class UnsupportedBuktiDukungType(ValueError):
+    pass
+
+
+def save_bukti_dukung_upload(data: bytes) -> str:
+    """Validates by content (never by extension/Content-Type), strips a filename down to
+    a random server-generated one, and for images re-encodes (resize + re-save) which
+    unconditionally drops EXIF/GPS as a side effect of the decode-re-encode itself.
+    Returns the stored filename (never the original)."""
+    is_pdf = data.startswith(b"%PDF-")
+    if is_pdf:
+        if len(data) > MAX_PDF_BYTES:
+            raise BuktiDukungTooLarge(f"PDF melebihi batas {MAX_PDF_BYTES // (1024 * 1024)}MB")
+        stored_name = f"{uuid.uuid4().hex}.pdf"
+        os.makedirs(UPLOAD_DIR, exist_ok=True)
+        with open(os.path.join(UPLOAD_DIR, stored_name), "wb") as f:
+            f.write(data)
+        return stored_name
+
+    if len(data) > MAX_IMAGE_BYTES:
+        raise BuktiDukungTooLarge(f"Gambar melebihi batas {MAX_IMAGE_BYTES // (1024 * 1024)}MB")
+    try:
+        probe = Image.open(io.BytesIO(data))
+        probe.verify()  # raises if not a real, undamaged image
+        image = Image.open(io.BytesIO(data))  # verify() leaves the handle unusable; reopen
+        image.load()
+    except (UnidentifiedImageError, OSError):
+        raise UnsupportedBuktiDukungType(
+            "Tipe file tidak didukung — hanya JPG/PNG/WEBP atau PDF"
+        )
+
+    image = ImageOps.exif_transpose(image)  # apply EXIF orientation before EXIF is dropped
+    image = image.convert("RGB")  # drops alpha/palette modes JPEG can't hold; also drops EXIF
+    image.thumbnail((IMAGE_MAX_DIMENSION, IMAGE_MAX_DIMENSION), Image.LANCZOS)
+
+    stored_name = f"{uuid.uuid4().hex}.jpg"
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    image.save(
+        os.path.join(UPLOAD_DIR, stored_name), format="JPEG",
+        quality=IMAGE_JPEG_QUALITY, optimize=True,
+    )  # no exif= kwarg passed -- output carries no EXIF block at all
+    return stored_name
 
 
 # --- Dashboard ---------------------------------------------------------------
@@ -676,7 +737,16 @@ def _news_matches_by_district(
     since = datetime.now(timezone.utc) - timedelta(days=window_days)
     recent = (
         db.query(models.News)
-        .filter(models.News.kategori.in_(kategori_set), models.News.created_at >= since)
+        .filter(
+            models.News.kategori.in_(kategori_set),
+            models.News.created_at >= since,
+            # Delay-flag / Berita Penting stay grounded in verified sources only -- any
+            # future sumber_terverifikasi=False source (e.g. Google News, deferred/not yet
+            # implemented) would have no fact-check pass behind it and must never itself
+            # trigger a data-collection delay signal. See Kamtibmas's Berita view
+            # (list_kamtibmas_berita) for where such a source would be surfaced instead.
+            models.News.sumber_terverifikasi.is_(True),
+        )
         .all()
     )
 
@@ -827,3 +897,82 @@ def get_sampel_summary(db: Session, kegiatan: str) -> list[schemas.SampelSummary
             berita_penting=berita_penting,
         ))
     return result
+
+
+# --- Kamtibmas (/kamtibmas -- Laporan keyword filter, Berita verified-sources filter
+# (Google News source deferred, not yet implemented), manual advisory banner) ---------
+
+# Narrows Report's "Keamanan & Sosial" bucket to actual security/order reports for the
+# Kamtibmas page only -- Report.CATEGORIES has no standalone "Keamanan" value, and adding
+# one would mean reclassifying every existing "Keamanan & Sosial" row by hand with no
+# reliable automatic way to do it. Biased toward over-inclusion: a false positive (an
+# ambiguous report shown on Kamtibmas) costs far less than a false negative (a real
+# security report silently missing), so this is a plain substring match with no
+# word-boundary or exclusion logic, unlike _is_aid_source_only_mention above.
+KAMTIBMAS_KEYWORDS = [
+    "kkb", "opm", "keamanan", "penembakan", "pembakaran", "kontak tembak",
+    "senjata", "ancaman", "teror", "serangan", "bentrok", "evakuasi",
+    "mengungsi", "gangguan keamanan", "situasi keamanan", "papua pegunungan",
+    "aparat keamanan",
+]
+
+
+def _is_kamtibmas_relevant(text: str) -> bool:
+    t = text.lower()
+    return any(k in t for k in KAMTIBMAS_KEYWORDS)
+
+
+def list_kamtibmas_laporan(db: Session) -> list[models.Report]:
+    """Display-only: never writes back to Report.category, never affects /laporan, /peta,
+    or the /risiko or /sampel urgent-report signal (_urgent_report_reasons_by_district
+    above is category-agnostic already and untouched by this function) -- those all keep
+    reading every 'Keamanan & Sosial' report exactly as they do today."""
+    reports = (
+        db.query(models.Report)
+        .filter(models.Report.category == "Keamanan & Sosial")
+        .order_by(models.Report.date.desc(), models.Report.created_at.desc())
+        .all()
+    )
+    return [r for r in reports if _is_kamtibmas_relevant(f"{r.title} {r.description}")]
+
+
+def list_kamtibmas_berita(db: Session) -> list[models.News]:
+    """Verified-source Keamanan items, plus every sumber_terverifikasi=False item
+    regardless of its own computed kategori -- reserved for a future Google News source
+    (deferred, not yet implemented). No rows currently have sumber_terverifikasi=False,
+    so that branch is dormant until that source ships."""
+    return (
+        db.query(models.News)
+        .filter(
+            or_(
+                and_(models.News.kategori == "Keamanan", models.News.sumber_terverifikasi.is_(True)),
+                models.News.sumber_terverifikasi.is_(False),
+            )
+        )
+        .order_by(models.News.created_at.desc())
+        .all()
+    )
+
+
+def get_kamtibmas_advisory(db: Session) -> models.KamtibmasAdvisory:
+    """Singleton row, created with defaults on first read so KamtibmasAdvisoryOut's
+    updated_at never has to be Optional just to cover the not-set-yet case."""
+    advisory = db.get(models.KamtibmasAdvisory, 1)
+    if advisory is None:
+        advisory = models.KamtibmasAdvisory(id=1)
+        db.add(advisory)
+        db.commit()
+        db.refresh(advisory)
+    return advisory
+
+
+def upsert_kamtibmas_advisory(
+    db: Session, advisory_in: schemas.KamtibmasAdvisoryUpdate, updated_by: str,
+) -> models.KamtibmasAdvisory:
+    advisory = get_kamtibmas_advisory(db)
+    advisory.text = advisory_in.text
+    advisory.severity = advisory_in.severity
+    advisory.updated_by = updated_by
+    db.commit()
+    db.refresh(advisory)
+    return advisory
