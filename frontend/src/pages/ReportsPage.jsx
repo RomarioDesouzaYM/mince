@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { listReports } from '../api/reports'
+import { deleteReport, listReports } from '../api/reports'
 import { URGENCY_BADGE } from '../constants'
 import ReportFilters from '../components/ReportFilters'
 import { buktiDukungFileUrl } from '../lib/uploads'
@@ -18,6 +18,7 @@ export default function ReportsPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [filters, setFilters] = useState(emptyFilters)
+  const [deletingId, setDeletingId] = useState(null)
 
   useEffect(() => {
     setLoading(true)
@@ -26,6 +27,21 @@ export default function ReportsPage() {
       .catch(() => setError('Gagal memuat daftar laporan'))
       .finally(() => setLoading(false))
   }, [filters])
+
+  async function handleDelete(report) {
+    if (!window.confirm(`Hapus laporan "${report.title}"? Tindakan ini tidak bisa dibatalkan.`)) {
+      return
+    }
+    setDeletingId(report.id)
+    try {
+      await deleteReport(report.id)
+      setReports((prev) => prev.filter((r) => r.id !== report.id))
+    } catch {
+      setError('Gagal menghapus laporan.')
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   return (
     <div>
@@ -61,6 +77,7 @@ export default function ReportsPage() {
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Peran</th>
                 <th className="px-4 py-3">Bukti</th>
+                <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -106,6 +123,16 @@ export default function ReportsPage() {
                     {!r.bukti_dukung_url && !r.bukti_dukung_file && (
                       <span className="text-gray-400">—</span>
                     )}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-right">
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(r)}
+                      disabled={deletingId === r.id}
+                      className="text-xs font-medium text-red-600 hover:underline disabled:opacity-50"
+                    >
+                      {deletingId === r.id ? 'Menghapus...' : 'Hapus'}
+                    </button>
                   </td>
                 </tr>
               ))}

@@ -26,3 +26,7 @@ export async function getKamtibmasLaporan() {
   const { data } = await client.get('/kamtibmas/laporan')
   return data
 }
+
+export async function deleteReport(id) {
+  await client.delete(`/reports/${id}`)
+}
