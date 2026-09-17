@@ -936,12 +936,29 @@ def list_kamtibmas_laporan(db: Session) -> list[models.Report]:
     return [r for r in reports if _is_kamtibmas_relevant(f"{r.title} {r.description}")]
 
 
+# Narrows Kamtibmas's Berita tab specifically -- News.kategori=="Keamanan" alone is too
+# broad for this page (e.g. general Komnas HAM/oknum aparat oversight stories), but that
+# same classification must stay exactly as-is for /berita, the dashboard, and the /sampel
+# delay-flag/Berita Penting matching (_news_matches_by_district above). This filter is
+# additive on top of the existing kategori=="Keamanan" scope, not a replacement of it, and
+# only applies to the verified-source branch -- a future Google News source (deferred, not
+# yet implemented) would be unaffected, per list_kamtibmas_berita's existing design.
+KAMTIBMAS_BERITA_KEYWORDS = ["kkb", "opm", "tpnpb", "knpb"]
+
+
+def _is_kamtibmas_berita_relevant(text: str) -> bool:
+    t = text.lower()
+    return any(k in t for k in KAMTIBMAS_BERITA_KEYWORDS)
+
+
 def list_kamtibmas_berita(db: Session) -> list[models.News]:
-    """Verified-source Keamanan items, plus every sumber_terverifikasi=False item
-    regardless of its own computed kategori -- reserved for a future Google News source
-    (deferred, not yet implemented). No rows currently have sumber_terverifikasi=False,
-    so that branch is dormant until that source ships."""
-    return (
+    """Verified-source Keamanan items matching KAMTIBMAS_BERITA_KEYWORDS, plus every
+    sumber_terverifikasi=False item regardless of its own computed kategori -- reserved
+    for a future Google News source (deferred, not yet implemented), whose own
+    regional-name search query would be that source's relevance gate instead of any
+    keyword classifier. No rows currently have sumber_terverifikasi=False, so this
+    branch is dormant until that source ships."""
+    rows = (
         db.query(models.News)
         .filter(
             or_(
@@ -952,6 +969,10 @@ def list_kamtibmas_berita(db: Session) -> list[models.News]:
         .order_by(models.News.created_at.desc())
         .all()
     )
+    return [
+        n for n in rows
+        if not n.sumber_terverifikasi or _is_kamtibmas_berita_relevant(f"{n.judul} {n.ringkasan}")
+    ]
 
 
 def get_kamtibmas_advisory(db: Session) -> models.KamtibmasAdvisory:
