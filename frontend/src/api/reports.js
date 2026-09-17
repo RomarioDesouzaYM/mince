@@ -12,3 +12,17 @@ export async function createReport(report) {
   const { data } = await client.post('/reports', report)
   return data
 }
+
+export async function uploadBuktiDukung(file) {
+  const formData = new FormData()
+  formData.append('file', file)
+  const { data } = await client.post('/reports/bukti-dukung/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return data
+}
+
+export async function getKamtibmasLaporan() {
+  const { data } = await client.get('/kamtibmas/laporan')
+  return data
+}

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { listReports } from '../api/reports'
 import { URGENCY_BADGE } from '../constants'
 import ReportFilters from '../components/ReportFilters'
+import { buktiDukungFileUrl } from '../lib/uploads'
 
 const emptyFilters = {
   kabupaten: '',
@@ -81,7 +82,7 @@ export default function ReportsPage() {
                   <td className="whitespace-nowrap px-4 py-3 text-gray-700">{r.status}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-gray-700">{r.submitted_by_role}</td>
                   <td className="whitespace-nowrap px-4 py-3">
-                    {r.bukti_dukung_url ? (
+                    {r.bukti_dukung_url && (
                       <a
                         href={r.bukti_dukung_url}
                         target="_blank"
@@ -90,7 +91,19 @@ export default function ReportsPage() {
                       >
                         Lihat Bukti
                       </a>
-                    ) : (
+                    )}
+                    {r.bukti_dukung_url && r.bukti_dukung_file && ' · '}
+                    {r.bukti_dukung_file && (
+                      <a
+                        href={buktiDukungFileUrl(r.bukti_dukung_file)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-blue-600 hover:underline"
+                      >
+                        Lihat Foto
+                      </a>
+                    )}
+                    {!r.bukti_dukung_url && !r.bukti_dukung_file && (
                       <span className="text-gray-400">—</span>
                     )}
                   </td>

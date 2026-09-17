@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CircleMarker, MapContainer, TileLayer, useMap, useMapEvents } from 'react-leaflet'
-import { createReport } from '../api/reports'
+import { createReport, uploadBuktiDukung } from '../api/reports'
 import { listDistricts } from '../api/districts'
 import { CATEGORIES, KEGIATAN, ROLES, URGENCY } from '../constants'
 
@@ -71,6 +71,7 @@ export default function AddReportPage() {
   const navigate = useNavigate()
   const [districts, setDistricts] = useState([])
   const [form, setForm] = useState(emptyForm)
+  const [buktiDukungFile, setBuktiDukungFile] = useState(null)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -121,8 +122,20 @@ export default function AddReportPage() {
     setError('')
     setSubmitting(true)
     try {
+      let bukti_dukung_file = ''
+      if (buktiDukungFile) {
+        try {
+          const uploaded = await uploadBuktiDukung(buktiDukungFile)
+          bukti_dukung_file = uploaded.filename
+        } catch (uploadErr) {
+          const detail = uploadErr.response?.data?.detail
+          setError(detail || 'Gagal mengunggah foto bukti dukung.')
+          return
+        }
+      }
       const payload = {
         ...form,
+        bukti_dukung_file,
         latitude: form.latitude === '' ? null : Number(form.latitude),
         longitude: form.longitude === '' ? null : Number(form.longitude),
       }
@@ -286,6 +299,19 @@ export default function AddReportPage() {
             className="input"
             placeholder="https://drive.google.com/..."
           />
+        </Field>
+
+        <Field label="Unggah Foto Bukti Dukung">
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp,application/pdf"
+            onChange={(e) => setBuktiDukungFile(e.target.files?.[0] ?? null)}
+            className="input"
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            Opsional, terpisah dari Link Bukti Dukung — boleh isi salah satu, keduanya, atau
+            tidak sama sekali. Maks. 5MB (gambar) / 8MB (PDF).
+          </p>
         </Field>
 
         <div>

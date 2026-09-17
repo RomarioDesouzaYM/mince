@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { buktiDukungFileUrl } from '../lib/uploads'
 
 export function DistrictMarkerContent({ district, counts, news = [] }) {
   return (
@@ -80,6 +81,16 @@ export function ReportMarkerContent({ report }) {
           className="text-blue-600 hover:underline"
         >
           Lihat Bukti
+        </a>
+      )}
+      {report.bukti_dukung_file && (
+        <a
+          href={buktiDukungFileUrl(report.bukti_dukung_file)}
+          target="_blank"
+          rel="noreferrer"
+          className="ml-2 text-blue-600 hover:underline"
+        >
+          Lihat Foto
         </a>
       )}
     </div>

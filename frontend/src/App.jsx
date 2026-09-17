@@ -13,6 +13,7 @@ import ApprovalQueuePage from './pages/ApprovalQueuePage'
 import RisikoPage from './pages/RisikoPage'
 import RingkasanPage from './pages/RingkasanPage'
 import SampelTargetPage from './pages/SampelTargetPage'
+import KamtibmasPage from './pages/KamtibmasPage'
 
 const WRITE_ROLES = ['operator', 'ketua_tim', 'kepala_bps']
 
@@ -30,6 +31,7 @@ export default function App() {
             <Route path="/risiko" element={<RisikoPage />} />
             <Route path="/ringkasan" element={<RingkasanPage />} />
             <Route path="/sampel" element={<SampelTargetPage />} />
+            <Route path="/kamtibmas" element={<KamtibmasPage />} />
           </Route>
         </Route>
 

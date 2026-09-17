@@ -8,6 +8,7 @@ const links = [
   { to: '/risiko', label: 'Risiko' },
   { to: '/sampel', label: 'Target Sampel' },
   { to: '/berita', label: 'Berita' },
+  { to: '/kamtibmas', label: 'Kamtibmas' },
   { to: '/ringkasan', label: 'Ringkasan' },
 ]
 
