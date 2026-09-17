@@ -88,7 +88,8 @@ class Report(Base):
     description = Column(Text, default="")
     source = Column(String, default="")
     submitted_by_role = Column(String, default="Pegawai Organik")  # see ROLES
-    bukti_dukung_url = Column(String, default="")             # link text; NO file upload
+    bukti_dukung_url = Column(String, default="")             # link text (Google Drive etc.)
+    bukti_dukung_file = Column(String, default="")            # server-stored filename; "" = none
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)
     status = Column(String, default="Baru", index=True)       # see STATUS
@@ -109,6 +110,11 @@ class News(Base):
     sumber = Column(String, default="")                        # feed title
     url = Column(String, nullable=False, unique=True, index=True)  # dedupe key
     kabupaten_terkait = Column(String, nullable=True, index=True)
+    # True for the 7 curated RSS feeds (RSS_FEEDS in scheduler.py). False is reserved for
+    # a future Google News source (deferred, not yet implemented) -- lets Kamtibmas show
+    # both once that source exists, while keeping the delay-flag / Berita Penting matching
+    # logic (crud._news_matches_by_district) grounded in verified sources only today.
+    sumber_terverifikasi = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime, default=_utcnow)
 
 
@@ -233,3 +239,19 @@ class DistrictRoute(Base):
     checked_at = Column(DateTime, default=_utcnow)
 
     district = relationship("District")
+
+
+KAMTIBMAS_SEVERITY = ["Normal", "Waspada", "Darurat"]
+
+
+class KamtibmasAdvisory(Base):
+    """Singleton advisory banner on /kamtibmas -- MANUAL, set only by ketua_tim/kepala_bps
+    (see routers/kamtibmas.py PUT). Never auto-generated from News/Report data, unlike
+    everything else that scheduler.py touches."""
+    __tablename__ = "kamtibmas_advisory"
+
+    id = Column(Integer, primary_key=True, default=1)
+    text = Column(Text, default="")
+    severity = Column(String, default="Normal")  # see KAMTIBMAS_SEVERITY
+    updated_by = Column(String, nullable=True)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)

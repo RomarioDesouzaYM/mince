@@ -37,6 +37,7 @@ class ReportBase(BaseModel):
     source: str = ""
     submitted_by_role: Role = "Pegawai Organik"
     bukti_dukung_url: str = ""
+    bukti_dukung_file: str = ""
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     status: Status = "Baru"
@@ -59,6 +60,7 @@ class ReportUpdate(BaseModel):
     source: Optional[str] = None
     submitted_by_role: Optional[Role] = None
     bukti_dukung_url: Optional[str] = None
+    bukti_dukung_file: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     status: Optional[Status] = None
@@ -71,6 +73,10 @@ class ReportOut(ReportBase):
     id: int
     created_at: datetime
     updated_at: datetime
+
+
+class BuktiDukungUploadOut(BaseModel):
+    filename: str
 
 
 class WeatherSnapshotOut(BaseModel):
@@ -124,6 +130,7 @@ class NewsOut(BaseModel):
     sumber: str = ""
     url: str
     kabupaten_terkait: Optional[str] = None
+    sumber_terverifikasi: bool = True
     created_at: datetime
 
 
@@ -280,3 +287,20 @@ class SampelSummaryRowOut(BaseModel):
     delay_flag: bool
     delay_flag_reasons: list[str]
     berita_penting: list[BeritaPentingItemOut] = []
+
+
+Severity = Literal["Normal", "Waspada", "Darurat"]
+
+
+class KamtibmasAdvisoryOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    text: str = ""
+    severity: Severity = "Normal"
+    updated_by: Optional[str] = None
+    updated_at: datetime
+
+
+class KamtibmasAdvisoryUpdate(BaseModel):
+    text: str
+    severity: Severity
